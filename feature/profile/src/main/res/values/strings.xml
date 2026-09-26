@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feature_profile_welcome">Welcome</string>
+    <string name="feature_profile_title_create">Tell us about\nyour baby</string>
+    <string name="feature_profile_title_edit">Edit profile</string>
+    <string name="feature_profile_back">Back</string>
+    <string name="feature_profile_add_photo">Add a photo</string>
+    <string name="feature_profile_add_photo_hint">Add a photo (optional)</string>
+    <string name="feature_profile_change_photo">Change photo</string>
+    <string name="feature_profile_photo_failed">Couldn\'t use that photo. Try another one.</string>
+    <string name="feature_profile_name">Baby\'s name</string>
+    <string name="feature_profile_name_placeholder">e.g. Ava</string>
+    <string name="feature_profile_birth_date">Birth date</string>
+    <string name="feature_profile_birth_date_placeholder">Select a date</string>
+    <string name="feature_profile_continue">Continue</string>
+    <string name="feature_profile_save">Save</string>
+</resources>

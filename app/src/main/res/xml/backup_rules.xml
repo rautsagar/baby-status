@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Auto Backup on Android 10–11. Keep in sync with data_extraction_rules.xml. -->
+<full-backup-content>
+    <!-- Room database (baby-status.db and its -wal / -shm files) -->
+    <include domain="database" path="." />
+    <!-- DataStore preferences (files/datastore/) and the baby photo (files/photos/) -->
+    <include domain="file" path="datastore/" />
+    <include domain="file" path="photos/" />
+</full-backup-content>

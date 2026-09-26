@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feature_growth_title">Log growth</string>
+    <string name="feature_growth_title_edit">Edit growth</string>
+    <string name="feature_growth_close">Close</string>
+    <string name="feature_growth_date">Date</string>
+    <string name="feature_growth_weight">Weight</string>
+    <string name="feature_growth_length">Length</string>
+    <string name="feature_growth_invalid">Check this number</string>
+    <string name="feature_growth_hint">Enter weight, length, or both — whatever you measured today.</string>
+    <string name="feature_growth_before_birth">That\'s before the birth date</string>
+    <string name="feature_growth_note">Note (optional)</string>
+    <string name="feature_growth_note_placeholder">At the pediatrician\'s office</string>
+    <string name="feature_growth_save">Save growth</string>
+    <string name="feature_growth_delete">Delete entry</string>
+</resources>

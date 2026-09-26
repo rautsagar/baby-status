@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feature_today_settings">Settings</string>
+    <string name="feature_today_age">Age</string>
+    <string name="feature_today_weight">Weight</string>
+    <string name="feature_today_height">Height</string>
+    <string name="feature_today_no_measurement">—</string>
+    <string name="feature_today_log_growth">Log growth</string>
+    <string name="feature_today_photo">Photo of %1$s</string>
+    <string name="feature_today_activity">Activity</string>
+    <string name="feature_today_see_all">See all</string>
+    <string name="feature_today_feed">Feed</string>
+    <string name="feature_today_diaper">Diaper</string>
+    <string name="feature_today_not_yet">Not logged yet</string>
+    <string name="feature_today_nothing_today">Nothing logged today yet</string>
+    <string name="feature_today_log_activity">Log activity</string>
+    <string name="feature_today_pumping">Pumping</string>
+    <string name="feature_today_mom">Mom</string>
+    <string name="feature_today_log">Log</string>
+    <string name="feature_today_log_pumping">Log pumping</string>
+    <string name="feature_today_pumped_today">%1$s today · last %2$s</string>
+    <string name="feature_today_pumped_none_today">Nothing today · last %1$s</string>
+</resources>

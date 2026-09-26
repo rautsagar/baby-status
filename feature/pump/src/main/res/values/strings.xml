@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feature_pump_mom">Mom</string>
+    <string name="feature_pump_title">Log pumping</string>
+    <string name="feature_pump_title_edit">Edit pumping</string>
+    <string name="feature_pump_close">Close</string>
+    <string name="feature_pump_amount">Amount pumped</string>
+    <string name="feature_pump_amount_description">Amount pumped in %1$s</string>
+    <string name="feature_pump_side">Side (optional)</string>
+    <string name="feature_pump_duration">Duration (optional)</string>
+    <string name="feature_pump_duration_invalid">1–180 min</string>
+    <string name="feature_pump_minutes">min</string>
+    <string name="feature_pump_when">When</string>
+    <string name="feature_pump_in_future">That time hasn\'t happened yet</string>
+    <string name="feature_pump_note">Note (optional)</string>
+    <string name="feature_pump_note_placeholder">Froze 2 oz</string>
+    <string name="feature_pump_save">Save pumping</string>
+    <string name="feature_pump_delete">Delete entry</string>
+</resources>

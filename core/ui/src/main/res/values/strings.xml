@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="core_ui_entry_bottle">Feed · Bottle</string>
+    <string name="core_ui_entry_solids">Solids · %1$s</string>
+    <string name="core_ui_entry_diaper_pee">Diaper · Pee</string>
+    <string name="core_ui_entry_diaper_potty">Diaper · Potty</string>
+    <string name="core_ui_entry_growth">Growth</string>
+    <string name="core_ui_entry_pump">Pump</string>
+    <string name="core_ui_mom">Mom</string>
+    <string name="core_ui_minutes">%1$d min</string>
+    <string name="core_ui_side_left">Left</string>
+    <string name="core_ui_side_right">Right</string>
+    <string name="core_ui_side_both">Both</string>
+    <string name="core_ui_separator">%1$s · %2$s</string>
+
+    <string name="core_ui_solids_taste">Taste</string>
+    <string name="core_ui_solids_some">Some</string>
+    <string name="core_ui_solids_lots">Lots</string>
+
+    <string name="core_ui_reaction_liked">Liked</string>
+    <string name="core_ui_reaction_disliked">Disliked</string>
+    <string name="core_ui_reaction_allergic">Allergic</string>
+    <string name="core_ui_reaction_liked_it">Liked it</string>
+    <string name="core_ui_reaction_disliked_it">Disliked it</string>
+    <string name="core_ui_reaction_allergic_it">Allergic reaction</string>
+
+    <string name="core_ui_diaper_pee">Pee</string>
+    <string name="core_ui_diaper_potty">Potty</string>
+</resources>

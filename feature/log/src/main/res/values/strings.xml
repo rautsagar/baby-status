@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feature_log_title">Log activity</string>
+    <string name="feature_log_title_edit">Edit activity</string>
+    <string name="feature_log_close">Close</string>
+    <string name="feature_log_feed">Feed</string>
+    <string name="feature_log_diaper">Diaper</string>
+    <string name="feature_log_bottle">Bottle</string>
+    <string name="feature_log_solids">Solids</string>
+    <string name="feature_log_amount">Amount</string>
+    <string name="feature_log_amount_description">Amount in %1$s</string>
+    <string name="feature_log_food">Food</string>
+    <string name="feature_log_food_placeholder">e.g. Sweet potato</string>
+    <string name="feature_log_food_required">Enter what was eaten</string>
+    <string name="feature_log_amount_eaten">Amount eaten</string>
+    <string name="feature_log_reaction">Reaction (optional)</string>
+    <string name="feature_log_when">When</string>
+    <string name="feature_log_in_future">That time hasn\'t happened yet</string>
+    <string name="feature_log_before_birth">That\'s before the birth date</string>
+    <string name="feature_log_note">Note (optional)</string>
+    <string name="feature_log_note_placeholder">Fussy, spit up a little…</string>
+    <string name="feature_log_save_feed">Save feed</string>
+    <string name="feature_log_save_diaper">Save diaper change</string>
+    <string name="feature_log_delete">Delete entry</string>
+</resources>

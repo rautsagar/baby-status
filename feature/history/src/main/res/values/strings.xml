@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="feature_history_title">History</string>
+    <string name="feature_history_back">Back</string>
+    <string name="feature_history_empty">Nothing logged yet. Entries you log show up here, grouped by day.</string>
+    <string name="feature_history_delete">Delete</string>
+    <!-- The design's compact wording ("4 pee · 2 potty") reads the same for any count. -->
+    <string name="feature_history_totals" tools:ignore="PluralsCandidate">%1$s fed · %2$d pee · %3$d potty</string>
+    <string name="feature_history_totals_with_pumping" tools:ignore="PluralsCandidate">%1$s fed · %2$s pumped · %3$d pee · %4$d potty</string>
+    <string name="feature_history_mom">Mom</string>
+</resources>
