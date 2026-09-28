@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Baby Status</string>
+    <string name="app_name">Artha tracker</string>
     <string name="entry_deleted">Entry deleted</string>
     <string name="undo">UNDO</string>
 </resources>

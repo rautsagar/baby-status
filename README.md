@@ -1,4 +1,4 @@
-# Baby Status
+# Artha tracker
 
 A calm, one-handed baby tracker for Android: feeds (bottle and solids), diaper changes, and growth, with the baby's age and latest measurements front and center.
 

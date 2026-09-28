@@ -17,9 +17,9 @@
     <string name="feature_settings_version">Version</string>
     <string name="feature_settings_privacy">Privacy policy</string>
     <string name="feature_settings_feedback">Send feedback</string>
-    <string name="feature_settings_feedback_subject">Baby Status feedback (v%1$s)</string>
+    <string name="feature_settings_feedback_subject">Artha tracker feedback (v%1$s)</string>
     <string name="feature_settings_no_email_app">No email app found</string>
 
     <string name="feature_privacy_title">Privacy policy</string>
-    <string name="feature_privacy_body">Baby Status keeps everything on this phone.\n\n&lt;b>What it stores.&lt;/b> Your baby\'s name, birth date and photo, and the feeds, diaper changes, measurements and pumping sessions you log, and Mom\'s name. Nothing else.\n\n&lt;b>Where it lives.&lt;/b> In the app\'s private storage on this device. The app has no account, no server, no analytics and no ads, and it doesn\'t use the internet.\n\n&lt;b>Backups.&lt;/b> If Android backup is turned on for this phone, Android includes the app\'s data in your Google backup so it can come back on a new phone. You control this in your phone\'s backup settings.\n\n&lt;b>Deleting it.&lt;/b> Uninstalling the app, or clearing its storage, deletes all of it.</string>
+    <string name="feature_privacy_body">Artha tracker keeps everything on this phone.\n\n&lt;b>What it stores.&lt;/b> Your baby\'s name, birth date and photo, and the feeds, diaper changes, measurements and pumping sessions you log, and Mom\'s name. Nothing else.\n\n&lt;b>Where it lives.&lt;/b> In the app\'s private storage on this device. The app has no account, no server, no analytics and no ads, and it doesn\'t use the internet.\n\n&lt;b>Backups.&lt;/b> If Android backup is turned on for this phone, Android includes the app\'s data in your Google backup so it can come back on a new phone. You control this in your phone\'s backup settings.\n\n&lt;b>Deleting it.&lt;/b> Uninstalling the app, or clearing its storage, deletes all of it.</string>
 </resources>
