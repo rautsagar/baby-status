@@ -95,6 +95,9 @@ fun BabyStatusApp(
                 rememberViewModelStoreNavEntryDecorator(),
             ),
             sceneStrategies = listOf(BottomSheetSceneStrategy()),
+            transitionSpec = { slideForward() },
+            popTransitionSpec = { slideBack() },
+            predictivePopTransitionSpec = { slideBack() },
             entryProvider = entryProvider {
                 profileEntry(
                     onDone = { mode ->
