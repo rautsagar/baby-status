@@ -1,4 +1,4 @@
-# Baby Status — Architecture Plan
+# Artha tracker — Architecture Plan
 
 Design source: [Baby Tracker canvas](https://claude.ai/artifact/UEkiiESeSGJnMnkkceZmrg)
 
@@ -323,7 +323,7 @@ One-off events (e.g. "saved → dismiss", "deleted → show Undo") exposed as st
 - A profile card (avatar, name, "Born Jun 12, 2026", chevron) → `ProfileKey(Edit)`.
 - **Mom's name** (no mock yet): a white card row under the baby's profile card with the pump icon, "Mom" as the title, the caregiver's name as the subtitle, and a chevron. Tapping it opens an M3 dialog with one text field (1–40 chars) → `CaregiverRepository.rename`. The badge on Today/History/sheet stays the fixed word **MOM**; the name is for Settings and future sync.
 - Units: an Imperial | Metric segmented toggle, with the helper text "Imperial shows oz, lb and in · Metric shows ml, kg and cm".
-- About: Version (from `BuildConfig.VERSION_NAME`), Privacy policy → `PrivacyPolicyKey` (in-app text), Send feedback → `Intent(ACTION_SENDTO, "mailto:")` with the subject "Baby Status feedback (v1.0.0)" and the address from `BuildConfig.FEEDBACK_EMAIL`.
+- About: Version (from `BuildConfig.VERSION_NAME`), Privacy policy → `PrivacyPolicyKey` (in-app text), Send feedback → `Intent(ACTION_SENDTO, "mailto:")` with the subject "Artha tracker feedback (v1.0.0)" and the address from `BuildConfig.FEEDBACK_EMAIL`.
 
 ### Profile (onboarding / edit)
 - A green header band ("Welcome" / "Tell us about your baby"), a photo button overlapping the band (dashed gold circle; shows the photo once one is chosen), the name field, and a birth date field (tapping it opens the M3 DatePicker; future dates blocked).
@@ -354,18 +354,95 @@ One-off events (e.g. "saved → dismiss", "deleted → show Undo") exposed as st
 - Room schema JSON is exported and committed, so migrations stay reviewable (migration tests can come later).
 - **GitHub Actions** (`.github/workflows/ci.yml`) on each PR and push to `main`: `./gradlew assembleDebug lintDebug testDebugUnitTest`, Gradle cache, JDK 21. Reports are uploaded when it fails.
 
-## 8. Path to sync (not v1, design is ready)
+## 8. Backup & restore (M8)
+
+**Goal: lossless backup/restore only.** Human readability is a non-goal. Occasional **hand edits** (add or remove a row) must work, and the one-time Baby Tracker import (§8.1) depends on that.
+
+### Format: a `.bsbackup` file (a ZIP)
+
+```
+babystatus-2026-09-26.bsbackup
+├── manifest.json                   format, formatVersion, appVersion, roomSchemaVersion, exportedAt
+├── baby-status.db                  snapshot via SQLite `VACUUM INTO` (consistent, no -wal/-shm)
+├── user_preferences.preferences_pb DataStore file
+└── photos/<uuid>.jpg
+```
+
+- **A snapshot of the database, not DTOs.** It's lossless by construction: new tables such as M7's are included automatically, with no mapping layer to forget.
+- **Older backups are upgraded by Room's own migrations** when they're opened. There's no second versioning scheme. A backup whose `roomSchemaVersion` is newer than the app's is refused ("Update the app to restore this backup").
+- **No content checksums in the manifest, so hand-edited files are accepted.** Corruption is caught by ZIP CRC and `PRAGMA integrity_check`.
+
+### Restore (replaces everything; there is no merge)
+1. Pick the file with `OpenDocument` (the system file picker; no permissions, still offline).
+2. Unzip to cache. Open the `.db` as a **temporary** Room database: this runs any migrations and `integrity_check`, and the live data is still untouched.
+3. **Validate every row** with the normal mappers. Repair `local_epoch_day` from `occurred_at` in the phone's zone when they disagree (the column hand edits get wrong most). Count rows that can't be read.
+4. **Preview:** baby name, date range, counts per kind, and "N rows can't be read and will be skipped". The button says "Replace all current data".
+5. **Swap:**
+   - close the live DB, then copy in the temp DB, preferences and photos
+   - delete photos nothing references any more
+   - restart the app process so every Flow and cache reloads
+
+### Backup
+`CreateDocument("application/zip")` suggests `babystatus-<date>.bsbackup`. It writes the snapshot, preferences, photos and manifest to the chosen file, with a one-line warning: "This file contains your baby's data. Keep it somewhere private."
+
+### Where it lives
+- **`:core:backup`**: `BackupExporter`, `BackupRestorer` (validate → preview model → swap) and `BackupManifest`. It depends on `:core:database`, the DataStore file and the photo directory.
+- **`:feature:settings`**: a "Backup" section with "Back up to file" and "Restore from file", plus the restore preview dialog.
+- **`:feature:profile` (onboarding)**: a "Restore from a backup" text button under Continue. A new phone is exactly when restore is needed. (Proposed default.)
+- **`docs/EDITING.md`**: the column rules for hand edits (UUID ids, epoch-ms UTC, `local_epoch_day`, metric units, exact enum strings, `deleted_at`) plus example `INSERT`s.
+
+### 8.1 One-time Baby Tracker import (M9, built: a dev tool, not app code)
+
+**Built** as `tools/babytracker_import/babytracker_csv.py` (+ `test_babytracker_csv.py`, 20 tests). The source is Baby Tracker's (nighp.com) **CSV export** (`csv.zip`: `Ari_nursing`, `Ari_diaper`, `Ari_formula`, `Ari_growth`, `pump`). The PDF report was dropped: the CSV is the source of truth, and it's cleaner (decimal pounds, per-side pump amounts). It's imported once, so there's **no in-app importer**.
+
+Because the M8 backup/restore feature isn't built yet, the script writes **straight into the app's SQLite file over adb** (debug build only; `run-as` opens debuggable apps):
+
+```
+python tools/babytracker_import/babytracker_csv.py csv.zip --adb              # dry run
+python tools/babytracker_import/babytracker_csv.py csv.zip --adb --write      # import
+python tools/babytracker_import/babytracker_csv.py csv.zip --db some.db ...   # a local file instead
+```
+`--write` force-stops the app, saves the untouched `baby-status.db` (+ `-wal`/`-shm`) to a backup folder (the undo), merges the WAL locally, inserts in one transaction, runs `integrity_check` + `foreign_key_check`, pushes the file back and deletes the stale `-wal`/`-shm`. Once M8 exists the same script could edit a `.bsbackup`'s database instead.
+
+**Mapping (decided):**
+
+| Baby Tracker CSV | Result |
+|---|---|
+| `Ari_nursing.csv` (335 rows) | **Skipped.** No breastfeeding type, by decision |
+| `Ari_formula.csv` (3) | `BOTTLE`, `volume_ml` = oz x 29.5735 (the formula label is lost, by decision) |
+| `Ari_diaper.csv` Wet / Dirty / Mixed / Dry | `PEE` / `POTTY` / `POTTY` / skipped |
+| `Ari_growth.csv` (3) | `GROWTH`, weight only (decimal lb -> g), date only. Head size isn't stored |
+| `pump.csv` (64 rows) | `pump_session`; rules below |
+
+**Pump rules:**
+- **Rows with the same timestamp merge into one session** (the 10:50 AM session is an amount row plus a minutes row).
+- **Volume** = left + right when given, else the total; summed across merged rows.
+- **Side:** `Start side` is empty in the export, so it comes from the breasts that have an amount or minutes: LEFT / RIGHT / BOTH, else null.
+- **Duration** = the longer of the two sides' minutes (their "total" adds the sides, double-counting a double pump). Outside 1-180 is dropped with a warning.
+- **Skipped and reported:** a session with no amount (minutes only), and any amount over 20 oz (the export has one `53`). Override a typo with `--pump-fix "9/15/26 12:26 AM=5.3"`.
+
+**Script behavior:**
+- Times are wall-clock in `--zone` (default: the device's zone). `local_epoch_day` = the local date.
+- Rows go to the app's existing baby (a name difference is reported) and to the mother row, created if missing.
+- **Deterministic ids:** UUIDv5 of kind, local time and values **plus an occurrence number**, so two identical rows at the same minute (two Dirty diapers at 7:44 PM) stay two entries. Written with `INSERT OR IGNORE`: re-running adds nothing (verified: 0 to add, all "already").
+- **Overlap:** a row is skipped if you already logged the same kind (same diaper kind) within +/-5 min (`--overlap-min`), or a growth entry on the same day. Deleted entries don't count.
+- **Baby entries before the app's birth date** are skipped and reported; pumping has no such bound.
+- **Dry run is the default.** `--preview file.md` writes a per-day table and every entry.
+
+**Result on the export (Jul 9 - Aug 26, 2026):** 3 bottles, 15 diapers (12 potty, 3 pee), 3 growth, 61 pump sessions imported; 335 nursing rows, one 53 oz row and one minutes-only session skipped. Verified on an emulator: the app opened the edited database, and Today/History matched the preview.
+
+## 9. Path to sync (not v1, design is ready)
 
 1. Add `:core:network` (Firestore or Supabase) + `:sync` with a WorkManager `SyncWorker`.
 2. Migration: add a `sync_state`/`server_version` column. Rows already have UUIDs, `updatedAt` and `deletedAt` tombstones.
 3. Repositories become offline-first: write locally, mark dirty, push/pull deltas, resolve conflicts with last-write-wins on `updatedAt`.
 4. Add auth + a family/household concept. `babyId` scoping already exists.
 
-## 9. Build order
+## 10. Build order
 
 | Milestone | Deliverable |
 |---|---|
-| (status) | **M0–M5 built** and exercised on an emulator (Sep 24, 2026). **M7 built** (Sep 26, 2026): the upgrade from schema 1 was run on the emulator over real v1 data. M6 polish is partly done; what's left is listed in §11 |
+| (status) | **M0–M5 built** and exercised on an emulator (Sep 24, 2026). **M7 built** (Sep 26, 2026): the upgrade from schema 1 was run on the emulator over real v1 data. M6 polish is partly done; what's left is listed in §12 |
 | M0 | Gradle skeleton, build-logic, version catalog, empty modules, theme + fonts, CI green |
 | M1 | `:core:model/database/datastore/data/domain` + tests; Profile (Create) end-to-end |
 | M2 | Today screen (live data, ticker, age) + Log activity sheet (Bottle / Solids / Diaper) |
@@ -373,11 +450,13 @@ One-off events (e.g. "saved → dismiss", "deleted → show Undo") exposed as st
 | M4 | History (paging, day headers, totals, edit, swipe-delete + Undo) |
 | M5 | Settings (units, About, privacy screen, feedback intent) + Profile (Edit) + photo + Auto Backup rules |
 | M7 | **Pumping**: schema v2 + migration test, `caregiver`/`pump_session`, `TimelineDao` union, `TimelineRepository` (history, totals, delete/undo move here), `:feature:pump` sheet, Today card, History rows/totals, Settings Mom's name, privacy text mentions pumping |
+| M8 | **Backup & restore** (§8): `:core:backup`, `.bsbackup` snapshot format, validated restore with preview + day repair, Settings rows, onboarding "Restore from a backup", `docs/EDITING.md` |
+| M9 | **One-time Baby Tracker import** (§8.1): **built**, `tools/babytracker_import/`; run against the emulator, not yet against the real device |
 | M6 | Polish: empty states, accessibility (TalkBack labels, 48dp targets), app icon, release build config |
 
-## 10. Defaults chosen (override if wrong)
+## 11. Defaults chosen (override if wrong)
 
-- Package / applicationId: `com.sagar.babystatus`; app name **"Baby Status"**.
+- Package / applicationId: `com.sagar.babystatus`; app name **"Artha tracker"** (renamed from "Baby Status"; the applicationId stays `com.sagar.babystatus` so installed data survives).
 - Feed/Diaper tiles on Today open the sheet preselected to that type; the FAB opens it on Feed.
 - The Recent list shows only today's entries (max 5); "See all" shows everything.
 - Deleted entries are kept as tombstones and never hard-deleted (small data, and sync needs them).
@@ -390,7 +469,7 @@ One-off events (e.g. "saved → dismiss", "deleted → show Undo") exposed as st
 - The "Log activity" FAB and sheet don't include pumping; the Today card is the way in.
 - Pump rows use the History title "Pump" (as mocked) while the card and sheet say "Pumping".
 
-## 11. As built: notes and deviations
+## 12. As built: notes and deviations
 
 Toolchain: Gradle 9.7.1, AGP 9.4.1 (built-in Kotlin, new DSL), Kotlin 2.4.20, KSP 2.3.12, Hilt 2.60.1, Room 2.8.5, Compose BOM 2026.09.00 (Material 3 1.4), Navigation 3 1.2.0, lifecycle 2.11. compileSdk/targetSdk 37, minSdk 29.
 
