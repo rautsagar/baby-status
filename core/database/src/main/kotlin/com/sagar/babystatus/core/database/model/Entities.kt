@@ -68,11 +68,3 @@ data class LogEntryEntity(
     }
 }
 
-/** Result row of [com.sagar.babystatus.core.database.dao.TimelineDao.observeDailyTotals]. */
-data class DailyTotalsRow(
-    @ColumnInfo(name = "local_epoch_day") val localEpochDay: Long,
-    @ColumnInfo(name = "bottle_ml") val bottleMl: Double,
-    @ColumnInfo(name = "pumped_ml") val pumpedMl: Double,
-    @ColumnInfo(name = "pee_count") val peeCount: Int,
-    @ColumnInfo(name = "potty_count") val pottyCount: Int,
-)

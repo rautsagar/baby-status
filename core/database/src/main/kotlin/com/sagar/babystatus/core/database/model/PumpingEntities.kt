@@ -78,3 +78,8 @@ data class TimelineRow(
         const val SOURCE_PUMP = "PUMP"
     }
 }
+
+/** One day that has entries: Room's paging source can't page bare primitives. */
+data class TimelineDayRow(
+    @ColumnInfo(name = "local_epoch_day") val day: Long,
+)

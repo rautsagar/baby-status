@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -23,6 +24,8 @@ import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -37,7 +40,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
@@ -49,6 +51,7 @@ import com.sagar.babystatus.core.designsystem.component.IconBadge
 import com.sagar.babystatus.core.designsystem.component.MomBadge
 import com.sagar.babystatus.core.designsystem.icon.BabyIcons
 import com.sagar.babystatus.core.designsystem.theme.BabyStatusTheme
+import com.sagar.babystatus.core.model.TimelineDay
 import com.sagar.babystatus.core.model.TimelineEntry
 import com.sagar.babystatus.core.model.occurredAtOrNull
 import com.sagar.babystatus.core.ui.entrySubtitle
@@ -63,13 +66,16 @@ import com.sagar.babystatus.core.ui.rememberIs24Hour
 internal fun HistoryRoute(
     onBack: () -> Unit,
     onEditEntry: (TimelineEntry) -> Unit,
-    viewModel: HistoryViewModel = hiltViewModel(),
+    viewModel: HistoryViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val items = viewModel.items.collectAsLazyPagingItems()
+    val days = viewModel.days.collectAsLazyPagingItems()
+    val initialScrollIndex by viewModel.initialScrollIndex.collectAsStateWithLifecycle()
     HistoryScreen(
         uiState = uiState,
-        items = items,
+        days = days,
+        initialScrollIndex = initialScrollIndex,
+        onScrolled = viewModel::onScrolled,
         onBack = onBack,
         onEditEntry = onEditEntry,
         onDelete = viewModel::delete,
@@ -79,19 +85,32 @@ internal fun HistoryRoute(
 @Composable
 internal fun HistoryScreen(
     uiState: HistoryUiState,
-    items: LazyPagingItems<HistoryItem>,
+    days: LazyPagingItems<TimelineDay>,
+    initialScrollIndex: Int?,
+    onScrolled: () -> Unit,
     onBack: () -> Unit,
     onEditEntry: (TimelineEntry) -> Unit,
     onDelete: (TimelineEntry) -> Unit,
 ) {
     val colors = BabyStatusTheme.colors
+    val listState = rememberLazyListState()
+
+    // Opened for a particular day (from Summary): jump there once. The list has a placeholder
+    // for every day, so the index is valid before its page loads.
+    LaunchedEffect(initialScrollIndex, days.itemCount) {
+        if (initialScrollIndex != null && days.itemCount > initialScrollIndex) {
+            listState.scrollToItem(initialScrollIndex)
+            onScrolled()
+        }
+    }
+
     Column(Modifier.fillMaxSize().background(colors.sage)) {
         ForestTopBar(
             title = stringResource(R.string.feature_history_title),
             backLabel = stringResource(R.string.feature_history_back),
             onBack = onBack,
         )
-        val isEmpty = items.itemCount == 0 && items.loadState.refresh is LoadState.NotLoading
+        val isEmpty = days.itemCount == 0 && days.loadState.refresh is LoadState.NotLoading
         if (isEmpty) {
             Text(
                 stringResource(R.string.feature_history_empty),
@@ -101,35 +120,44 @@ internal fun HistoryScreen(
             )
         }
         LazyColumn(
+            state = listState,
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             modifier = Modifier.fillMaxSize().navigationBarsPadding(),
         ) {
             items(
-                count = items.itemCount,
-                key = items.itemKey { item ->
-                    when (item) {
-                        is HistoryItem.DayHeader -> "day-${item.date}"
-                        is HistoryItem.Row -> item.entry.id
-                    }
-                },
-                contentType = items.itemContentType { it::class },
+                count = days.itemCount,
+                key = days.itemKey { it.date.toEpochDay() },
+                contentType = days.itemContentType { "day" },
             ) { index ->
-                when (val item = items[index]) {
-                    is HistoryItem.DayHeader -> DayHeader(item, uiState)
-                    is HistoryItem.Row -> {
-                        // A day's rows share one white card: round only its first and last row.
-                        val isFirst = index == 0 || items.peek(index - 1) is HistoryItem.DayHeader
-                        val isLast = index == items.itemCount - 1 || items.peek(index + 1) is HistoryItem.DayHeader
-                        SwipeableRow(
-                            entry = item.entry,
-                            uiState = uiState,
-                            isFirst = isFirst,
-                            isLast = isLast,
-                            onClick = { onEditEntry(item.entry) },
-                            onDelete = { onDelete(item.entry) },
-                        )
-                    }
-                    null -> Unit
+                days[index]?.let { day -> DaySection(day, uiState, onEditEntry, onDelete) }
+            }
+        }
+    }
+}
+
+/** One day: its title and totals line, then a white card with all of its entries. */
+@Composable
+private fun DaySection(
+    day: TimelineDay,
+    uiState: HistoryUiState,
+    onEditEntry: (TimelineEntry) -> Unit,
+    onDelete: (TimelineEntry) -> Unit,
+) {
+    val colors = BabyStatusTheme.colors
+    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        DayHeader(day, uiState)
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.card)) {
+            day.entries.forEachIndexed { index, entry ->
+                // Keyed by entry: the swipe state must follow the entry, not its position, or the
+                // row after a deleted one would inherit "dismissed".
+                key(entry.id) {
+                    SwipeableRow(
+                        entry = entry,
+                        uiState = uiState,
+                        showDivider = index > 0,
+                        onClick = { onEditEntry(entry) },
+                        onDelete = { onDelete(entry) },
+                    )
                 }
             }
         }
@@ -137,37 +165,35 @@ internal fun HistoryScreen(
 }
 
 @Composable
-private fun DayHeader(header: HistoryItem.DayHeader, uiState: HistoryUiState) {
+private fun DayHeader(day: TimelineDay, uiState: HistoryUiState) {
     val colors = BabyStatusTheme.colors
-    val totals = uiState.totals[header.date]
+    val summary = day.summary
+    val fed = UnitFormatter.volume(summary.fed, uiState.unitSystem)
     Column(
         verticalArrangement = Arrangement.spacedBy(2.dp),
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
     ) {
         Text(
-            TimeFormatter.dayLabel(header.date, uiState.today),
+            TimeFormatter.dayLabel(day.date, uiState.today),
             style = MaterialTheme.typography.titleSmall,
             color = colors.forest,
             modifier = Modifier.semantics { heading() },
         )
-        if (totals != null) {
-            val fed = UnitFormatter.volume(totals.bottle, uiState.unitSystem)
-            Text(
-                if (totals.pumped.ml > 0) {
-                    stringResource(
-                        R.string.feature_history_totals_with_pumping,
-                        fed,
-                        UnitFormatter.volume(totals.pumped, uiState.unitSystem),
-                        totals.peeCount,
-                        totals.pottyCount,
-                    )
-                } else {
-                    stringResource(R.string.feature_history_totals, fed, totals.peeCount, totals.pottyCount)
-                },
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                color = colors.stone,
-            )
-        }
+        Text(
+            if (summary.pumped.ml > 0) {
+                stringResource(
+                    R.string.feature_history_totals_with_pumping,
+                    fed,
+                    UnitFormatter.volume(summary.pumped, uiState.unitSystem),
+                    summary.pee,
+                    summary.potty,
+                )
+            } else {
+                stringResource(R.string.feature_history_totals, fed, summary.pee, summary.potty)
+            },
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+            color = colors.stone,
+        )
     }
 }
 
@@ -175,24 +201,16 @@ private fun DayHeader(header: HistoryItem.DayHeader, uiState: HistoryUiState) {
 private fun SwipeableRow(
     entry: TimelineEntry,
     uiState: HistoryUiState,
-    isFirst: Boolean,
-    isLast: Boolean,
+    showDivider: Boolean,
     onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val colors = BabyStatusTheme.colors
-    val corner = 20.dp
-    val shape = RoundedCornerShape(
-        topStart = if (isFirst) corner else 0.dp,
-        topEnd = if (isFirst) corner else 0.dp,
-        bottomStart = if (isLast) corner else 0.dp,
-        bottomEnd = if (isLast) corner else 0.dp,
-    )
     val deleteLabel = stringResource(R.string.feature_history_delete)
     // Plain remember, not the saveable default: LazyColumn restores saved item state by key,
     // so an undone row would come back already dismissed and be deleted again.
     val state = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, positionalThreshold = { it * 0.4f }) }
-    Box(Modifier.clip(shape).background(colors.card)) {
+    Box(Modifier.background(colors.card)) {
         SwipeToDismissBox(
             state = state,
             enableDismissFromStartToEnd = false,
@@ -217,7 +235,7 @@ private fun SwipeableRow(
             },
         ) {
             Column(Modifier.background(colors.card)) {
-                if (!isFirst) HorizontalDivider(color = colors.divider, modifier = Modifier.padding(horizontal = 16.dp))
+                if (showDivider) HorizontalDivider(color = colors.divider, modifier = Modifier.padding(horizontal = 16.dp))
                 EntryRow(entry, uiState, onClick)
             }
         }

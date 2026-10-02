@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="feature_summary_title">Summary</string>
+    <string name="feature_summary_back">Back</string>
+    <string name="feature_summary_today">Today</string>
+    <string name="feature_summary_so_far">so far · %1$s</string>
+
+    <string name="feature_summary_fed">Fed</string>
+    <string name="feature_summary_pumped">Pumped</string>
+    <string name="feature_summary_diapers">Diapers</string>
+    <string name="feature_summary_mom">Mom</string>
+    <string name="feature_summary_pee_potty">%1$d pee · %2$d potty</string>
+    <!-- The solids count joins the bottle count: "4 bottles · 1 solids". -->
+    <string name="feature_summary_fed_detail" tools:ignore="PluralsCandidate">%1$s · %2$d solids</string>
+
+    <plurals name="feature_summary_bottles">
+        <item quantity="one">%d bottle</item>
+        <item quantity="other">%d bottles</item>
+    </plurals>
+    <plurals name="feature_summary_sessions">
+        <item quantity="one">%d session</item>
+        <item quantity="other">%d sessions</item>
+    </plurals>
+    <plurals name="feature_summary_diapers_count">
+        <item quantity="one">%d diaper</item>
+        <item quantity="other">%d diapers</item>
+    </plurals>
+
+    <string name="feature_summary_previous_days">Previous days</string>
+    <string name="feature_summary_full_history">Full history</string>
+    <string name="feature_summary_earlier_days">Earlier days will show up here.</string>
+    <string name="feature_summary_column_day">Day</string>
+    <string name="feature_summary_column_fed">Fed</string>
+    <string name="feature_summary_column_pumped">Pumped</string>
+    <string name="feature_summary_column_diapers">Diapers</string>
+    <string name="feature_summary_none">—</string>
+
+    <!-- Spoken descriptions. -->
+    <string name="feature_summary_row_description">%1$s. Fed %2$s. Pumped %3$s. %4$s. Opens history.</string>
+    <string name="feature_summary_row_empty_description">%1$s. Nothing logged.</string>
+    <string name="feature_summary_today_fed_description">Fed %1$s. %2$s.</string>
+    <string name="feature_summary_today_pumped_description">Pumped by Mom %1$s. %2$s.</string>
+    <string name="feature_summary_today_diapers_description">%1$s. %2$s.</string>
+</resources>

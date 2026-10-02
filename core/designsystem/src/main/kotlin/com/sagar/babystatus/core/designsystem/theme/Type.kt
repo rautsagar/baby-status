@@ -38,6 +38,8 @@ private fun body(size: Int, weight: FontWeight = FontWeight.Normal) =
 internal val BabyStatusTypography = Typography(
     /** Bottle amount. */
     displayLarge = display(48, FontWeight.Medium),
+    /** Summary totals. */
+    displayMedium = display(40, FontWeight.Medium),
     /** Sheet and onboarding titles. */
     headlineMedium = display(26),
     /** Baby name on Today. */

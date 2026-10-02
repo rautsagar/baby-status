@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="feature_today_summary">Summary</string>
     <string name="feature_today_settings">Settings</string>
     <string name="feature_today_age">Age</string>
     <string name="feature_today_weight">Weight</string>

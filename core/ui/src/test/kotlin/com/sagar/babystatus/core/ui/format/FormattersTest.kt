@@ -25,6 +25,14 @@ class FormattersTest {
     }
 
     @Test
+    fun `volume parts split the number from the unit and agree with the full string`() {
+        assertEquals(VolumeParts("18", "oz"), UnitFormatter.volumeParts(Volume.ofOz(18.0), UnitSystem.IMPERIAL))
+        assertEquals(VolumeParts("17.5", "oz"), UnitFormatter.volumeParts(Volume.ofOz(17.4), UnitSystem.IMPERIAL))
+        assertEquals(VolumeParts("0", "oz"), UnitFormatter.volumeParts(Volume.ofOz(0.0), UnitSystem.IMPERIAL))
+        assertEquals(VolumeParts("90", "ml"), UnitFormatter.volumeParts(Volume.ofOz(3.0), UnitSystem.METRIC))
+    }
+
+    @Test
     fun `mass and length keep one decimal`() {
         assertEquals("13.2 lb", UnitFormatter.mass(Mass.ofLb(13.2), UnitSystem.IMPERIAL))
         assertEquals("6.0 kg", UnitFormatter.mass(Mass(5987), UnitSystem.METRIC))

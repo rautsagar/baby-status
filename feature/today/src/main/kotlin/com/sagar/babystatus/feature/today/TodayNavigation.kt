@@ -10,6 +10,7 @@ import kotlinx.serialization.Serializable
 data object TodayKey : NavKey
 
 fun EntryProviderScope<NavKey>.todayEntry(
+    onOpenSummary: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenHistory: () -> Unit,
     onLogActivity: (ActivityType?) -> Unit,
@@ -19,6 +20,7 @@ fun EntryProviderScope<NavKey>.todayEntry(
 ) {
     entry<TodayKey> {
         TodayRoute(
+            onOpenSummary = onOpenSummary,
             onOpenSettings = onOpenSettings,
             onOpenHistory = onOpenHistory,
             onLogActivity = onLogActivity,

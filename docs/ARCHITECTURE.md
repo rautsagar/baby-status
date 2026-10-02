@@ -8,6 +8,7 @@ Design source: [Baby Tracker canvas](https://claude.ai/artifact/UEkiiESeSGJnMnkk
 | `AddActivity.dc.html` | Log activity sheet (Bottle / Solids / Diaper; `editMode` variant) |
 | `LogGrowth.dc.html` | Log growth sheet |
 | `History.dc.html` | History (day groups, swipe-delete, Undo snackbar) |
+| `Summary.dc.html` | Summary (today's totals + the five previous days). `Main.dc.html` gained its entry point: a Summary icon button in the header, left of Settings |
 | `Onboarding.dc.html` | Onboarding (also reused as Edit profile from Settings) |
 | `Settings.dc.html` | Settings |
 | `LogPump.dc.html` | Log pumping sheet (Mom; `editMode` variant) |
@@ -33,6 +34,7 @@ The mockups contain placeholder values. Where they differ from this plan, **the 
 | About | Version, an in-app Privacy policy screen, and Send feedback (opens an email draft). Personal install only, not on the Play Store |
 | Time entry | Defaults to now; tap to open M3 date + time pickers; no future times, nothing before the birth date |
 | History ("See all") | Grouped by day with daily totals; tap to edit in the same sheet; swipe to delete with Undo |
+| Summary | A screen reached from an icon button in Today's header. **Today's totals** are the hero card (fed oz with bottle/solids counts, pumped oz with session count, diapers with pee/potty split); the **5 previous calendar days** are a quiet table (fed, pumped, diaper count). Tapping a day opens History **scrolled to that day** |
 | Theme | Brand theme only (dark forest green + gold); Fraunces + Figtree; no dynamic color |
 | Backup | Android Auto Backup (DB + DataStore + photos) |
 | Mom: pumping | Log pumping sessions: amount, optional side (Left/Right/Both), optional duration, when, note. Pumping belongs to a **caregiver (Mom)**, not the baby. It's a separate table, and Mom's name is editable in Settings. **No milk stash**: sessions are a log only, not linked to bottle feeds |
@@ -57,7 +59,8 @@ Profile(Create) ──(baby created)──► Today ──► History
 |---|---|---|
 | `ProfileKey` | screen | `mode: Create \| Edit`. Create is the start destination when no baby exists (title "Tell us about your baby", button "Continue"). Edit comes from Settings (back arrow, "Save") |
 | `TodayKey` | screen (root) | — |
-| `HistoryKey` | screen | — |
+| `HistoryKey` | screen | `focusEpochDay: Long?` (null = top; else scroll to that day) |
+| `SummaryKey` | screen | — |
 | `SettingsKey` | screen | — |
 | `PrivacyPolicyKey` | screen | — (static text: "all data stays on this device + Google backup") |
 | `LogActivityKey` | bottom sheet | `entryId: String?` (null = new), `initialType: ActivityType?` (Feed or Diaper tile preselects it) |
@@ -75,8 +78,8 @@ Profile(Create) ──(baby created)──► Today ──► History
 
 ```mermaid
 graph TD
-  app --> feature_profile & feature_today & feature_log & feature_growth & feature_pump & feature_history & feature_settings
-  feature_profile & feature_today & feature_log & feature_growth & feature_pump & feature_history & feature_settings --> core_ui & core_designsystem & core_domain
+  app --> feature_profile & feature_today & feature_log & feature_growth & feature_pump & feature_summary & feature_history & feature_settings
+  feature_profile & feature_today & feature_log & feature_growth & feature_pump & feature_summary & feature_history & feature_settings --> core_ui & core_designsystem & core_domain
   core_ui --> core_designsystem & core_model
   core_domain --> core_data
   core_data --> core_database & core_datastore & core_common & core_model
@@ -102,6 +105,7 @@ graph TD
 | `:feature:log` | Log activity sheet (Bottle / Solids / Diaper; create + edit + delete) |
 | `:feature:growth` | Log growth sheet (create + edit + delete) |
 | `:feature:pump` | Log pumping sheet (create + edit + delete) |
+| `:feature:summary` | Summary screen + VM (today's totals, previous days) |
 | `:feature:history` | Paged list grouped by day, swipe to delete + Undo |
 | `:feature:settings` | Settings (profile card → Profile(Edit), units toggle, About) + Privacy policy screen |
 
@@ -239,8 +243,9 @@ interface CaregiverRepository {
 }
 /** History and delete/undo span both tables. */
 interface TimelineRepository {
-    fun history(): Flow<PagingData<TimelineEntry>>
-    fun observeDailyTotals(): Flow<Map<LocalDate, DailyTotals>>   // DailyTotals gains `pumped: Volume`
+    fun historyDays(): Flow<PagingData<TimelineDay>>           // one item per day that has entries, newest first
+    suspend fun dayIndex(date: LocalDate): Int                 // that day's position in historyDays(); used to scroll
+    fun observeSummaries(from: LocalDate): Flow<Map<LocalDate, DaySummary>>   // from `from` to today; days with no entries are absent
     suspend fun delete(id: String)                             // soft; routes by which table holds the id
     suspend fun undoDelete(id: String)
 }
@@ -260,6 +265,31 @@ interface PhotoStore { suspend fun importFromPicker(uri: Uri): String /* relativ
 
 `PickVisualMedia(ImageOnly)` → `PhotoStore` decodes with `ImageDecoder`, downsizes to ≤1024 px, writes `filesDir/photos/<uuid>.jpg`, updates `baby.photoPath` and deletes the previous file. No runtime permissions needed.
 
+### 4.6 Days and summaries (M10)
+
+One idea replaces two: **a day's entries are the source, and its totals are computed from them in Kotlin.** That removes the SQL `GROUP BY` (`TimelineDao.observeDailyTotals`, `DailyTotalsRow`, `DailyTotals`) and its mapper, so History's header and the Summary screen can never disagree.
+
+```kotlin
+// :core:model
+data class DaySummary(
+    val date: LocalDate,
+    val fed: Volume, val bottleCount: Int, val solidsCount: Int,     // fed = bottles only: solids have no volume
+    val pumped: Volume, val pumpSessions: Int,
+    val pee: Int, val potty: Int,
+    val entryCount: Int,                                             // every entry, growth included (counted nowhere else)
+) { val diapers get() = pee + potty; val hasEntries get() = entryCount > 0 }
+data class TimelineDay(val date: LocalDate, val entries: List<TimelineEntry>) { val summary = summarize(date, entries) }   // timeline order inside the day
+fun summarize(date: LocalDate, entries: List<TimelineEntry>): DaySummary
+```
+
+`TimelineDao` changes (queries only, **no schema change, no migration**):
+- `pagingSourceDays(babyId): PagingSource<Int, TimelineDayRow>` (Room can't page a bare `Long`, so the row is a one-column POJO): `SELECT DISTINCT local_epoch_day` over the same union, newest first. Room's source counts the rows, so Paging has **placeholders**: the list knows its full length before pages load.
+- `entriesOnDay(babyId, day): List<TimelineRow>` (suspend, one query per day, run inside `PagingData.map`), mapped into a `TimelineDay`; days whose entries all just vanished (a delete racing the page) are filtered out.
+- `countDaysAfter(babyId, day): Int` = `COUNT(DISTINCT local_epoch_day) WHERE local_epoch_day > :day`, which is exactly a day's index in the list. That powers `dayIndex`.
+- `observeEntriesSince(babyId, fromDay): Flow<List<TimelineRow>>`, a few dozen rows at most, for the Summary screen.
+
+`GetSummaryUseCase(today)` (`:core:domain`) combines the baby (for the birth date) with `observeSummaries(today - 5 days)` into `Summary(today: DaySummary, previous: List<DaySummary>)`: five calendar days, newest first. A day with nothing logged is `summarize(day, emptyList())` (so `hasEntries` is false), never missing. Days before the baby's birth date are left out.
+
 ## 5. UI layer pattern
 
 Every screen follows the same structure:
@@ -277,6 +307,7 @@ One-off events (e.g. "saved → dismiss", "deleted → show Undo") exposed as st
 - The recent list shows the 5 most recent entries from today, with an empty state when there are none.
 - **Pumping card** (under the Feed/Diaper tiles): pump icon on `#F6E1DA`, "Pumping" + a **MOM** badge, subtitle "14 oz today · last 3h ago" ("Nothing today · last 1d ago" / "Not logged yet"), and a rust `#8E4436` "+ Log" pill. The whole card is one button → `LogPumpKey()`. Data: `PumpRepository.observeSummary(today)` combined in `TodayViewModel` (it's Mom's, so it stays out of `GetTodayStatusUseCase`).
 - The **Recent list stays baby-only**: pumps don't appear there. History shows them.
+- **Header (M10):** an icon-only **Summary** button (bar-chart icon, content description "Summary") sits left of the Settings button, drawn exactly like it (44 dp `CircleIconButton`, `goldLight` fill, forest icon, 8 dp gap), opening `SummaryKey`. The name column keeps `weight(1f)` and ellipsizes, so a long name never pushes the buttons off screen.
 - Layout per the new mock: photo 150 dp (was 168) and the status block 284 dp tall, so the extra card fits without scrolling on a 390×844 screen.
 - Age comes from `CalculateAgeUseCase`: under 4 weeks `"12 days"`, under 24 months `"3 mo, 1 wk"`, after that `"2 yr, 3 mo"`.
 
@@ -305,8 +336,10 @@ One-off events (e.g. "saved → dismiss", "deleted → show Undo") exposed as st
 - New design tokens: an `Accent` `mom` (`#7A2F22` fg / `#F6E1DA` bg / `#8E4436` border), `momIcon` `#9A4535`, and a `Pump` stroke icon from the mock. A small shared `MomBadge` component goes in `:core:designsystem`.
 
 ### History
-- A top bar with a back arrow and a light background (`#EEF5EC`). Each day group is a header plus one white rounded card of rows.
-- `Pager` → `PagingData<TimelineEntry>` (from `TimelineRepository`) → `insertSeparators` day headers (`Today`, `Yesterday`, `Mon, Sep 22`). Totals now sit on a **second line under the day title** (new mock): "18 oz fed · 14 oz pumped · 4 pee · 2 potty" in current units. "· N oz pumped" is left out on days with no pumping.
+- A top bar with a back arrow and a light background (`#EEF5EC`). Each day is a header plus one white rounded card of rows.
+- **Restructured in M10: one list item per day, not per entry.** `Pager` → `PagingData<TimelineDay>` (§4.6). A day item draws its own title (`Today`, `Yesterday`, `Mon, Sep 22`), the totals line, and the card with all of that day's rows. `insertSeparators`, `HistoryItem.DayHeader` and the first/last-row corner logic go away: the card clips its rows. The totals line comes from `TimelineDay.summary()`: "18 oz fed · 14 oz pumped · 4 pee · 2 potty" in current units, with "· N oz pumped" left out on days with no pumping.
+- **Scroll to a day:** `HistoryKey(focusEpochDay)` goes to `HistoryViewModel` through assisted injection. It reads `dayIndex(date)` once and exposes it as `initialScrollIndex`. The screen calls `LazyListState.scrollToItem(index)` once. Placeholders make that index valid before the pages load; reading items near it makes Paging load them. No `initialKey` is needed.
+- **Why per-day items:** with `insertSeparators`, headers aren't counted in placeholders, so a day's list index couldn't be computed without loading everything above it.
 
 | Entry | Icon (circle bg / fg) | Title | Subtitle | Time |
 |---|---|---|---|---|
@@ -318,6 +351,21 @@ One-off events (e.g. "saved → dismiss", "deleted → show Undo") exposed as st
 
 - `SwipeToDismissBox` (end-to-start, red `#8B3A2E` "Delete" background) → soft delete → snackbar "Entry deleted" + **UNDO** → `undoDelete`.
 - Tapping a row opens LogActivity, LogGrowth or LogPump in edit mode. Swipe-delete and Undo go through `TimelineRepository`, so pumps behave the same.
+
+### Summary (new in M10, `:feature:summary`)
+- **Top bar:** the shared forest `ForestTopBar` (back arrow + "Summary").
+- **Today** (hero): the title "Today" with "so far · Sep 24" beside it, then one white 24 dp card (soft shadow) of three rows, each a 48 dp icon badge, a title with a subtitle, and a big Fraunces number:
+  - **Fed**: bottle badge; subtitle "4 bottles · 1 solids"; number `18` + "oz" (bottles only).
+  - **Pumped** + **MOM** badge: pump badge (rust); subtitle "3 sessions"; number + unit.
+  - **Diapers**: drop badge; subtitle "4 pee · 2 potty"; number `6` with no unit.
+  - Counts use plurals ("1 bottle", "1 session"). Zero values still show ("0 oz", "0 sessions"). All three rows always appear.
+- **Previous days** (quiet): a small caps title with a "Full history" link (leaf green, opens History at the top). Under it a four-column table, **Day · Fed · Pumped · Diapers**, with the numbers right-aligned in muted ink (`#5E574F`).
+  - Rows are **the 5 calendar days before today**; the label is `Yesterday`, then `Tue, Sep 22`. Fed and pumped use the current units ("27 oz"); Diapers is the total count.
+  - A day with nothing logged shows "—" in every cell and **isn't tappable**; the others open `HistoryKey(focusEpochDay)`.
+  - If the baby is less than five days old, only days from the birth date show. With no previous days yet, the section shows "Earlier days will show up here."
+- **Live:** `SummaryViewModel` combines `GetSummaryUseCase`, the unit preference and the same per-minute ticker as Today, so the totals update the moment you log something and roll over at local midnight (also when the time zone changes).
+- **Design tokens:** `displayMedium` (Fraunces 500, 40 sp) for the big numbers, `BabyIcons.BarChart` (paths `M5 20V12`, `M12 20V5`, `M19 20v-9`). The badges reuse `IconBadge`, `MomBadge` and the Feed/Diaper/`mom` accents. `UnitFormatter.volumeParts(volume, units)` returns the number and unit separately ("18", "oz").
+- **Accessibility:** the table has no Compose role, so each previous-day row is one `Role.Button` with a spoken description: "Yesterday. Fed 27 ounces. Pumped 16 ounces. 8 diapers. Opens history." Empty days read "Mon, Sep 22. Nothing logged.", and each hero row reads as one sentence.
 
 ### Settings
 - A profile card (avatar, name, "Born Jun 12, 2026", chevron) → `ProfileKey(Edit)`.
@@ -452,6 +500,7 @@ python tools/babytracker_import/babytracker_csv.py csv.zip --db some.db ...   # 
 | M7 | **Pumping**: schema v2 + migration test, `caregiver`/`pump_session`, `TimelineDao` union, `TimelineRepository` (history, totals, delete/undo move here), `:feature:pump` sheet, Today card, History rows/totals, Settings Mom's name, privacy text mentions pumping |
 | M8 | **Backup & restore** (§8): `:core:backup`, `.bsbackup` snapshot format, validated restore with preview + day repair, Settings rows, onboarding "Restore from a backup", `docs/EDITING.md` |
 | M9 | **One-time Baby Tracker import** (§8.1): **built**, `tools/babytracker_import/`; run against the emulator, not yet against the real device |
+| M10 | **Summary screen** (§4.6, §5): `DaySummary`/`TimelineDay` + `summarize`; `TimelineDao` day queries and removal of the SQL daily totals; **History restructured to one item per day** with scroll-to-day; `GetSummaryUseCase`; `:feature:summary`; the Today header button; design tokens; tests; a check on the phone against its real data |
 | M6 | Polish: empty states, accessibility (TalkBack labels, 48dp targets), app icon, release build config |
 
 ## 11. Defaults chosen (override if wrong)
@@ -468,6 +517,9 @@ python tools/babytracker_import/babytracker_csv.py csv.zip --db some.db ...   # 
 - History totals leave out "oz pumped" on days with no pumping.
 - The "Log activity" FAB and sheet don't include pumping; the Today card is the way in.
 - Pump rows use the History title "Pump" (as mocked) while the card and sheet say "Pumping".
+- Summary: the "day" is the local calendar day (midnight to midnight), the same as History. "Fed" counts bottle volume only (solids show as a count). The Diapers column is pee + potty.
+- Summary: the Pumped row always shows, even for a day with no pumping. The previous-days window is fixed at 5 calendar days.
+- History: unchanged to look at. Its day cards now come from per-day items, so they can be scrolled to by date.
 
 ## 12. As built: notes and deviations
 
@@ -475,7 +527,7 @@ Toolchain: Gradle 9.7.1, AGP 9.4.1 (built-in Kotlin, new DSL), Kotlin 2.4.20, KS
 
 Where the code differs from sections 3–5:
 
-- **No `GetHistoryUseCase`.** History's ViewModel reads `LogRepository.history()` and `observeDailyTotals()` directly; a use case would only have forwarded them.
+- **No `GetHistoryUseCase`.** History's ViewModel reads `TimelineRepository.historyDays()` directly (M7 moved it off `LogRepository`; M10 made it one item per day); a use case would only have forwarded it.
 - **`DeleteLogEntryUseCase`** (a `@Singleton`; with M7 it becomes `DeleteEntryUseCase` on top of `TimelineRepository`) soft-deletes and emits the id. `:app` collects it and shows the single "Entry deleted · UNDO" snackbar, so a History swipe and the sheets' "Delete entry" share one Undo path.
 - **Food suggestions** are filtered in the ViewModel (`LogActivityViewModel.suggestions`): past foods (most recent first), then the starter list, matching the typed text and never the exact text. The DAO query just returns distinct foods.
 - **Today's Recent list** shows timed entries only (growth has no time); tapping a row opens it for editing, as in History.
@@ -490,6 +542,16 @@ M7 (pumping) as built:
 - **The Mom row** is created by `CaregiverDao.getOrCreateMother` (`@Transaction`) on the first pump save or rename. Until then `CaregiverRepository.mother` emits a default "Mom".
 - **`PumpSession` has no caregiver id** in the model. `DefaultPumpRepository` attaches the mother on save, like `babyId` for the baby's entries.
 - **Pumping card copy:** "Just now" reads as "last just now" on the card, since it's lowercased after "last". This is a copy nit to fix if it bothers anyone.
+
+M10 (Summary) as built:
+- **Totals are computed in Kotlin from a day's entries** (`summarize`), as planned; the SQL daily totals are gone. History's header and the Summary screen call the same function.
+- **`entriesOnDay` is per day**, not per page (`entriesOnDays`, as the plan said). One small query per day item keeps `PagingData.map` simple, and a page is only ~20 days.
+- **History scroll-to-day** uses `TimelineRepository.dayIndex(date)` (`COUNT(DISTINCT day) WHERE day > :date`) and `listState.scrollToItem(index)` once; `HistoryViewModel.initialScrollIndex` is cleared by `onScrolled()` so a rotation doesn't jump again. A day with no entries lands on the next older day that has some. `HistoryViewModel` is assisted-injected with its `HistoryKey`.
+- **A day's rows are `key(entry.id)`ed** inside the day item. The swipe state still lives in plain `remember`, so it has to follow the entry, not its position, or the row after a deleted one inherits "dismissed".
+- **The minute ticker moved to `:core:common`** (`Clock.minuteTicks()`, `Clock.todayDates()`), shared by Today and Summary so both roll over at local midnight the same way.
+- **The previous-days table shows "—" for any zero figure**, not only on empty days: a day with no pumping reads quieter as a dash than as "0 oz". The hero card still shows real zeros ("0 oz", "0 sessions").
+- **Checked on the Pixel_9a emulator, not the phone** (it wasn't connected): the Baby Tracker export plus a seeded week. Summary's Today card, the previous-days table and History's day headers agreed on every figure; a tap on a day opened History scrolled to it; the empty day did nothing; "Full history" opened History at the top; a History swipe-delete updated the Today header live and Undo brought the row back undismissed. Still worth a look on the phone against its real data.
+- **Paging test tooling:** `FakeTimelineRepository.historyDays()` emits `PagingData.from(days, SETTLED)`. Without load states, `asSnapshot` waits for a load that never comes and times out. `:feature:history` tests use `paging-testing`.
 
 Still open (M6 + M7):
 - An automated migration test (`MigrationTestHelper`). It needs instrumented or Robolectric tests, which v1 skipped. The 1 → 2 upgrade was verified by installing over a v1 build on the emulator.

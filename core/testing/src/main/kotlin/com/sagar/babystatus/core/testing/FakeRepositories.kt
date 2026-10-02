@@ -1,5 +1,7 @@
 package com.sagar.babystatus.core.testing
 
+import androidx.paging.LoadState
+import androidx.paging.LoadStates
 import androidx.paging.PagingData
 import com.sagar.babystatus.core.data.repository.BabyRepository
 import com.sagar.babystatus.core.data.repository.CaregiverRepository
@@ -13,7 +15,7 @@ import com.sagar.babystatus.core.model.Baby
 import com.sagar.babystatus.core.model.BottleFeed
 import com.sagar.babystatus.core.model.Caregiver
 import com.sagar.babystatus.core.model.CaregiverRole
-import com.sagar.babystatus.core.model.DailyTotals
+import com.sagar.babystatus.core.model.DaySummary
 import com.sagar.babystatus.core.model.DiaperChange
 import com.sagar.babystatus.core.model.DiaperKind
 import com.sagar.babystatus.core.model.GrowthMeasurement
@@ -23,6 +25,7 @@ import com.sagar.babystatus.core.model.PumpSession
 import com.sagar.babystatus.core.model.PumpSummary
 import com.sagar.babystatus.core.model.SolidsFeed
 import com.sagar.babystatus.core.model.TimedEntry
+import com.sagar.babystatus.core.model.TimelineDay
 import com.sagar.babystatus.core.model.TimelineEntry
 import com.sagar.babystatus.core.model.UnitSystem
 import com.sagar.babystatus.core.model.UserPreferences
@@ -32,6 +35,7 @@ import com.sagar.babystatus.core.model.occurredAtOrNull
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import java.time.LocalDate
@@ -153,18 +157,17 @@ class FakeTimelineRepository(
     private val merged: Flow<List<TimelineEntry>> =
         combine(log.table.flow, pump.table.flow) { entries, sessions -> (entries + sessions).sortedWith(TIMELINE_ORDER) }
 
-    override fun history(): Flow<PagingData<TimelineEntry>> = merged.map { PagingData.from(it) }
+    /** One item per day that has entries, newest first, like the Room implementation. */
+    private val days: Flow<List<TimelineDay>> = merged.map { list ->
+        list.groupBy { it.date }.entries.sortedByDescending { it.key }.map { (date, entries) -> TimelineDay(date, entries) }
+    }
 
-    override fun observeDailyTotals(): Flow<Map<LocalDate, DailyTotals>> = merged.map { list ->
-        list.groupBy { it.date }.mapValues { (date, day) ->
-            DailyTotals(
-                date = date,
-                bottle = Volume(day.filterIsInstance<BottleFeed>().sumOf { it.volume.ml }),
-                pumped = Volume(day.filterIsInstance<PumpSession>().sumOf { it.volume.ml }),
-                peeCount = day.count { it is DiaperChange && it.kind == DiaperKind.PEE },
-                pottyCount = day.count { it is DiaperChange && it.kind == DiaperKind.POTTY },
-            )
-        }
+    override fun historyDays(): Flow<PagingData<TimelineDay>> = days.map { PagingData.from(it, SETTLED) }
+
+    override suspend fun dayIndex(date: LocalDate): Int = days.first().count { it.date.isAfter(date) }
+
+    override fun observeSummaries(from: LocalDate): Flow<Map<LocalDate, DaySummary>> = days.map { list ->
+        list.filter { !it.date.isBefore(from) }.associate { it.date to it.summary }
     }
 
     override suspend fun delete(id: String) {
@@ -200,3 +203,6 @@ class FakePhotoStore : PhotoStore {
         deletedPaths += path
     }
 }
+
+/** A static list that says it has finished loading, so Paging's test tools don't wait for more. */
+private val SETTLED = LoadStates(LoadState.NotLoading(true), LoadState.NotLoading(true), LoadState.NotLoading(true))

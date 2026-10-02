@@ -2,6 +2,7 @@ package com.sagar.babystatus.feature.today
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sagar.babystatus.core.common.minuteTicks
 import com.sagar.babystatus.core.data.repository.PumpRepository
 import com.sagar.babystatus.core.data.repository.UserPreferencesRepository
 import com.sagar.babystatus.core.domain.BabyAge
@@ -13,14 +14,12 @@ import com.sagar.babystatus.core.model.TimedEntry
 import com.sagar.babystatus.core.model.UnitSystem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
@@ -62,13 +61,8 @@ class TodayViewModel @Inject constructor(
 ) : ViewModel() {
 
     /** Ticks at each minute boundary so "2h 25m ago" and the day stay current. */
-    private val now: Flow<Instant> = flow {
-        while (true) {
-            val instant = clock.instant()
-            emit(instant)
-            delay(MILLIS_PER_MINUTE - instant.toEpochMilli() % MILLIS_PER_MINUTE)
-        }
-    }.shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
+    private val now: Flow<Instant> = clock.minuteTicks()
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
 
     private val today: Flow<LocalDate> = now.map { it.atZone(clock.zone).toLocalDate() }.distinctUntilChanged()
 
@@ -98,8 +92,4 @@ class TodayViewModel @Inject constructor(
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayUiState.Loading)
-
-    private companion object {
-        const val MILLIS_PER_MINUTE = 60_000L
-    }
 }

@@ -46,6 +46,9 @@ object TimeFormatter {
     fun dateTime(instant: Instant, zone: ZoneId, today: LocalDate, is24Hour: Boolean): String =
         "${dayLabel(instant.atZone(zone).toLocalDate(), today)}, ${clockTime(instant, zone, is24Hour)}"
 
+    /** "Sep 24". */
+    fun shortDate(date: LocalDate): String = monthDay.format(date)
+
     /** "Jun 12, 2026". */
     fun fullDate(date: LocalDate): String = monthDayYear.format(date)
 

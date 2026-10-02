@@ -10,6 +10,7 @@ Everything stays on the phone (no account, no server, no internet permission). A
 - **Log activity** (bottom sheet): bottle (1–10 oz / 30–300 ml slider), solids (food with suggestions, amount, optional reaction), diaper (pee / potty), when, and a note. Tap an entry to edit or delete it.
 - **Log growth**: weight and/or length for a date.
 - **Log pumping** (Mom): amount, optional side and duration; a Pumping card on Today and pump rows in History.
+- **Summary**: today's totals (fed, pumped, diapers) and a quiet table of the five days before it; tap a day to open it in History.
 - **History**: every entry grouped by day with daily totals; swipe to delete with Undo.
 - **Settings**: edit the baby's profile and photo, imperial / metric units, privacy policy, feedback.
 
@@ -21,7 +22,7 @@ Multi-module, Now-in-Android style, with convention plugins in `build-logic/`:
 
 ```
 app                      NavDisplay, sheets, undo snackbar, Hilt entry point
-feature/{today,log,growth,pump,history,profile,settings}
+feature/{today,log,growth,pump,history,summary,profile,settings}
 core/model               pure Kotlin domain types
 core/domain              use cases (age, validation, today status, delete + undo)
 core/data                repositories, photo storage

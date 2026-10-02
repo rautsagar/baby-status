@@ -34,6 +34,7 @@ object BabyIcons {
     val Bowl by lazy { strokeIcon("Bowl", 2f, "M2 12a8 8 0 0 0 16 0", "M2 12h20") }
     val Pump by lazy { strokeIcon("Pump", 2f, "M5 4h14l-4.5 7v7a2.5 2.5 0 0 1-5 0v-7z", "M9.5 15h5") }
     val Growth by lazy { strokeIcon("Growth", 2f, "M3 17l6-6 4 4 8-8", "M17 7h4v4") }
+    val BarChart by lazy { strokeIcon("BarChart", 2f, "M5 20V12", "M12 20V5", "M19 20v-9") }
     val Plus by lazy { strokeIcon("Plus", 2.4f, "M12 5v14M5 12h14") }
     val Close by lazy { strokeIcon("Close", 2.2f, "M6 6l12 12M18 6L6 18") }
     val Back by lazy { strokeIcon("Back", 2.2f, "M15 18l-6-6 6-6") }

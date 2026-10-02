@@ -7,11 +7,18 @@ import com.sagar.babystatus.core.model.Volume
 import java.util.Locale
 import kotlin.math.roundToInt
 
+/** A formatted volume split into its [number] and [unit]. */
+data class VolumeParts(val number: String, val unit: String)
+
 /** Metric storage -> display strings. English abbreviations; numbers use the device locale. */
 object UnitFormatter {
-    fun volume(volume: Volume, unitSystem: UnitSystem): String = when (unitSystem) {
-        UnitSystem.IMPERIAL -> "${ounces(volume.oz)} oz"
-        UnitSystem.METRIC -> "${(volume.ml / 5).roundToInt() * 5} ml"
+    fun volume(volume: Volume, unitSystem: UnitSystem): String =
+        volumeParts(volume, unitSystem).let { "${it.number} ${it.unit}" }
+
+    /** The number and the unit apart, for layouts that style them differently ("18", "oz"). */
+    fun volumeParts(volume: Volume, unitSystem: UnitSystem): VolumeParts = when (unitSystem) {
+        UnitSystem.IMPERIAL -> VolumeParts(ounces(volume.oz), "oz")
+        UnitSystem.METRIC -> VolumeParts(((volume.ml / 5).roundToInt() * 5).toString(), "ml")
     }
 
     fun mass(mass: Mass, unitSystem: UnitSystem): String = when (unitSystem) {

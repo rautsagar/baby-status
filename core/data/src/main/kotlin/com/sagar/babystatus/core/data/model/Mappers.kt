@@ -1,7 +1,6 @@
 package com.sagar.babystatus.core.data.model
 
 import com.sagar.babystatus.core.database.model.BabyEntity
-import com.sagar.babystatus.core.database.model.DailyTotalsRow
 import com.sagar.babystatus.core.database.model.LogEntryEntity
 import com.sagar.babystatus.core.database.model.LogEntryEntity.Companion.TYPE_BOTTLE
 import com.sagar.babystatus.core.database.model.LogEntryEntity.Companion.TYPE_DIAPER
@@ -10,7 +9,6 @@ import com.sagar.babystatus.core.database.model.LogEntryEntity.Companion.TYPE_SO
 import com.sagar.babystatus.core.model.ActivityType
 import com.sagar.babystatus.core.model.Baby
 import com.sagar.babystatus.core.model.BottleFeed
-import com.sagar.babystatus.core.model.DailyTotals
 import com.sagar.babystatus.core.model.DiaperChange
 import com.sagar.babystatus.core.model.DiaperKind
 import com.sagar.babystatus.core.model.GrowthMeasurement
@@ -110,14 +108,6 @@ internal fun LogEntry.toEntity(babyId: String, createdAt: Long, updatedAt: Long)
         )
     }
 }
-
-internal fun DailyTotalsRow.toModel() = DailyTotals(
-    date = LocalDate.ofEpochDay(localEpochDay),
-    bottle = Volume(bottleMl),
-    pumped = Volume(pumpedMl),
-    peeCount = peeCount,
-    pottyCount = pottyCount,
-)
 
 internal inline fun <reified E : Enum<E>> String?.toEnumOrNull(): E? =
     this?.let { name -> enumValues<E>().firstOrNull { it.name == name } }

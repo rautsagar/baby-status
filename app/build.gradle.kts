@@ -51,6 +51,7 @@ dependencies {
     implementation(projects.feature.profile)
     implementation(projects.feature.pump)
     implementation(projects.feature.settings)
+    implementation(projects.feature.summary)
     implementation(projects.feature.today)
 
     implementation(libs.androidx.activity.compose)

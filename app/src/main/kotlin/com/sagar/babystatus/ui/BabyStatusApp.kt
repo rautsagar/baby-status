@@ -47,6 +47,8 @@ import com.sagar.babystatus.feature.pump.logPumpEntry
 import com.sagar.babystatus.feature.settings.PrivacyPolicyKey
 import com.sagar.babystatus.feature.settings.SettingsKey
 import com.sagar.babystatus.feature.settings.settingsEntries
+import com.sagar.babystatus.feature.summary.SummaryKey
+import com.sagar.babystatus.feature.summary.summaryEntry
 import com.sagar.babystatus.feature.today.TodayKey
 import com.sagar.babystatus.feature.today.todayEntry
 import kotlinx.coroutines.flow.Flow
@@ -112,12 +114,17 @@ fun BabyStatusApp(
                     onBack = { backStack.goBack() },
                 )
                 todayEntry(
+                    onOpenSummary = { backStack.add(SummaryKey) },
                     onOpenSettings = { backStack.add(SettingsKey) },
-                    onOpenHistory = { backStack.add(HistoryKey) },
+                    onOpenHistory = { backStack.add(HistoryKey()) },
                     onLogActivity = { type -> backStack.add(LogActivityKey(initialType = type)) },
                     onLogGrowth = { backStack.add(LogGrowthKey()) },
                     onLogPump = { backStack.add(LogPumpKey()) },
                     onEditEntry = editEntry,
+                )
+                summaryEntry(
+                    onBack = { backStack.goBack() },
+                    onOpenHistory = { focusEpochDay -> backStack.add(HistoryKey(focusEpochDay)) },
                 )
                 historyEntry(onBack = { backStack.goBack() }, onEditEntry = editEntry)
                 logActivityEntry(onDone = { key -> backStack.removeIfOnTop(key) })

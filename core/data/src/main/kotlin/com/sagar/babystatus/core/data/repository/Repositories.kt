@@ -4,13 +4,13 @@ import androidx.paging.PagingData
 import com.sagar.babystatus.core.model.ActivityType
 import com.sagar.babystatus.core.model.Baby
 import com.sagar.babystatus.core.model.Caregiver
-import com.sagar.babystatus.core.model.DailyTotals
+import com.sagar.babystatus.core.model.DaySummary
 import com.sagar.babystatus.core.model.LatestGrowth
 import com.sagar.babystatus.core.model.LogEntry
 import com.sagar.babystatus.core.model.PumpSession
 import com.sagar.babystatus.core.model.PumpSummary
 import com.sagar.babystatus.core.model.TimedEntry
-import com.sagar.babystatus.core.model.TimelineEntry
+import com.sagar.babystatus.core.model.TimelineDay
 import com.sagar.babystatus.core.model.UnitSystem
 import com.sagar.babystatus.core.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
@@ -62,12 +62,16 @@ interface CaregiverRepository {
     suspend fun renameMother(name: String)
 }
 
-/** History and delete/undo, across the baby's entries and Mom's pumping. */
+/** History, day summaries and delete/undo, across the baby's entries and Mom's pumping. */
 interface TimelineRepository {
-    /** Timeline order: newest day first, growth at the top of its day, newest time first. */
-    fun history(): Flow<PagingData<TimelineEntry>>
+    /** One item per day that has entries, newest first. */
+    fun historyDays(): Flow<PagingData<TimelineDay>>
 
-    fun observeDailyTotals(): Flow<Map<LocalDate, DailyTotals>>
+    /** [date]'s position in [historyDays]: the number of days with entries that are newer. */
+    suspend fun dayIndex(date: LocalDate): Int
+
+    /** Summaries from [from] to today. A day with no entries has no item. */
+    fun observeSummaries(from: LocalDate): Flow<Map<LocalDate, DaySummary>>
 
     /** Soft delete of whichever kind of entry has this id; [undoDelete] restores it. */
     suspend fun delete(id: String)

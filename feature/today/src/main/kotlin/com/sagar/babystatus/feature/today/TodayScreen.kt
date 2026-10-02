@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -82,6 +81,7 @@ import java.time.ZoneId
 
 @Composable
 internal fun TodayRoute(
+    onOpenSummary: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenHistory: () -> Unit,
     onLogActivity: (ActivityType?) -> Unit,
@@ -93,6 +93,7 @@ internal fun TodayRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     TodayScreen(
         uiState = uiState,
+        onOpenSummary = onOpenSummary,
         onOpenSettings = onOpenSettings,
         onOpenHistory = onOpenHistory,
         onLogActivity = onLogActivity,
@@ -105,6 +106,7 @@ internal fun TodayRoute(
 @Composable
 internal fun TodayScreen(
     uiState: TodayUiState,
+    onOpenSummary: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenHistory: () -> Unit,
     onLogActivity: (ActivityType?) -> Unit,
@@ -124,7 +126,7 @@ internal fun TodayScreen(
                     // Room for the FAB below the last card.
                     .padding(bottom = 96.dp),
             ) {
-                Header(uiState.babyName, uiState.today, onOpenSettings)
+                Header(uiState.babyName, uiState.today, onOpenSummary, onOpenSettings)
                 StatusCircle(uiState, onLogGrowth)
                 ActivitySection(uiState, onOpenHistory, onLogActivity, onLogPump, onEditEntry)
             }
@@ -141,7 +143,7 @@ internal fun TodayScreen(
 }
 
 @Composable
-private fun Header(name: String, today: LocalDate, onOpenSettings: () -> Unit) {
+private fun Header(name: String, today: LocalDate, onOpenSummary: () -> Unit, onOpenSettings: () -> Unit) {
     val colors = BabyStatusTheme.colors
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -158,6 +160,14 @@ private fun Header(name: String, today: LocalDate, onOpenSettings: () -> Unit) {
             )
             Text(TimeFormatter.dateWithDay(today, today), style = MaterialTheme.typography.bodySmall, color = colors.mist)
         }
+        CircleIconButton(
+            icon = BabyIcons.BarChart,
+            contentDescription = stringResource(R.string.feature_today_summary),
+            onClick = onOpenSummary,
+            containerColor = colors.goldLight,
+            contentColor = colors.forest,
+            modifier = Modifier.padding(horizontal = 8.dp),
+        )
         CircleIconButton(
             icon = BabyIcons.Settings,
             contentDescription = stringResource(R.string.feature_today_settings),
@@ -462,6 +472,7 @@ private fun TodayScreenPreview() {
                 today = today,
                 zone = zone,
             ),
+            onOpenSummary = {},
             onOpenSettings = {},
             onOpenHistory = {},
             onLogActivity = {},
