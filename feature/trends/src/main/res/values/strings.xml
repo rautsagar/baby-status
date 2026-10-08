@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feature_trends_title">Trends</string>
+    <string name="feature_trends_back">Back</string>
+
+    <string name="feature_trends_growth">Growth</string>
+    <string name="feature_trends_feeding">Feeding</string>
+    <string name="feature_trends_diapers">Diapers</string>
+    <string name="feature_trends_pumping">Pumping</string>
+
+    <string name="feature_trends_weight">Weight</string>
+    <string name="feature_trends_fed_per_day">Fed per day</string>
+    <string name="feature_trends_diapers_per_day">Diapers per day</string>
+    <string name="feature_trends_pumped_per_day">Pumped per day</string>
+    <!-- Card subtitles: "Now 13.2 lb", "Avg 24 oz / day". -->
+    <string name="feature_trends_now">Now %1$s</string>
+    <string name="feature_trends_average">Avg %1$s / day</string>
+    <string name="feature_trends_not_enough">Not enough logged yet to show a trend.</string>
+
+    <!-- Spoken description of the chart: "Fed per day, last 30 days. From 2 oz to 32 oz. Average 24 oz per day." -->
+    <string name="feature_trends_chart_description">%1$s, %2$s. From %3$s to %4$s. %5$s.</string>
+    <string name="feature_trends_average_spoken">Average %1$s per day</string>
+    <plurals name="feature_trends_last_days">
+        <item quantity="one">last %d day</item>
+        <item quantity="other">last %d days</item>
+    </plurals>
+    <plurals name="feature_trends_diapers_count">
+        <item quantity="one">%d diaper</item>
+        <item quantity="other">%d diapers</item>
+    </plurals>
+</resources>
