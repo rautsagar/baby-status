@@ -355,6 +355,8 @@ private fun SummaryScreenPreview() {
         pee = pee,
         potty = potty,
         entryCount = bottles + pee + potty,
+        weight = null,
+        length = null,
     )
     BabyStatusTheme {
         SummaryScreen(
