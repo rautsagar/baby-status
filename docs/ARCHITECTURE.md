@@ -38,7 +38,7 @@ The mockups contain placeholder values. Where they differ from this plan, **the 
 | Theme | Brand theme only (dark forest green + gold); Fraunces + Figtree; no dynamic color |
 | Backup | Android Auto Backup (DB + DataStore + photos) |
 | Mom: pumping | Log pumping sessions: amount, optional side (Left/Right/Both), optional duration, when, note. Pumping belongs to a **caregiver (Mom)**, not the baby. It's a separate table, and Mom's name is editable in Settings. **No milk stash**: sessions are a log only, not linked to bottle feeds |
-| Extras | None in v1 (no reminders, widget or stats) |
+| Extras | None in v1 (no reminders or widget). M11 adds Trends: a line chart per category over 30 days, linked from Summary |
 | Quality | Unit tests + GitHub Actions CI |
 | Platform | minSdk 29, target/compile the latest stable SDK, Kotlin, Compose, Hilt, Navigation 3 |
 
@@ -61,6 +61,7 @@ Profile(Create) ──(baby created)──► Today ──► History
 | `TodayKey` | screen (root) | — |
 | `HistoryKey` | screen | `focusEpochDay: Long?` (null = top; else scroll to that day) |
 | `SummaryKey` | screen | — |
+| `TrendsKey` | screen | — (opened from Summary's "View trends" link) |
 | `SettingsKey` | screen | — |
 | `PrivacyPolicyKey` | screen | — (static text: "all data stays on this device + Google backup") |
 | `LogActivityKey` | bottom sheet | `entryId: String?` (null = new), `initialType: ActivityType?` (Feed or Diaper tile preselects it) |
@@ -78,8 +79,8 @@ Profile(Create) ──(baby created)──► Today ──► History
 
 ```mermaid
 graph TD
-  app --> feature_profile & feature_today & feature_log & feature_growth & feature_pump & feature_summary & feature_history & feature_settings
-  feature_profile & feature_today & feature_log & feature_growth & feature_pump & feature_summary & feature_history & feature_settings --> core_ui & core_designsystem & core_domain
+  app --> feature_profile & feature_today & feature_log & feature_growth & feature_pump & feature_summary & feature_trends & feature_history & feature_settings
+  feature_profile & feature_today & feature_log & feature_growth & feature_pump & feature_summary & feature_trends & feature_history & feature_settings --> core_ui & core_designsystem & core_domain
   core_ui --> core_designsystem & core_model
   core_domain --> core_data
   core_data --> core_database & core_datastore & core_common & core_model
@@ -106,6 +107,7 @@ graph TD
 | `:feature:growth` | Log growth sheet (create + edit + delete) |
 | `:feature:pump` | Log pumping sheet (create + edit + delete) |
 | `:feature:summary` | Summary screen + VM (today's totals, previous days) |
+| `:feature:trends` | Trends screen + VM (a line chart per category over 30 days) and its Canvas `LineChart` |
 | `:feature:history` | Paged list grouped by day, swipe to delete + Undo |
 | `:feature:settings` | Settings (profile card → Profile(Edit), units toggle, About) + Privacy policy screen |
 
@@ -277,6 +279,7 @@ data class DaySummary(
     val pumped: Volume, val pumpSessions: Int,
     val pee: Int, val potty: Int,
     val entryCount: Int,                                             // every entry, growth included (counted nowhere else)
+    val weight: Mass?, val length: Length?,                          // M11: the day's most recent growth values, null if none
 ) { val diapers get() = pee + potty; val hasEntries get() = entryCount > 0 }
 data class TimelineDay(val date: LocalDate, val entries: List<TimelineEntry>) { val summary = summarize(date, entries) }   // timeline order inside the day
 fun summarize(date: LocalDate, entries: List<TimelineEntry>): DaySummary
@@ -289,6 +292,8 @@ fun summarize(date: LocalDate, entries: List<TimelineEntry>): DaySummary
 - `observeEntriesSince(babyId, fromDay): Flow<List<TimelineRow>>`, a few dozen rows at most, for the Summary screen.
 
 `GetSummaryUseCase(today)` (`:core:domain`) combines the baby (for the birth date) with `observeSummaries(today - 5 days)` into `Summary(today: DaySummary, previous: List<DaySummary>)`: five calendar days, newest first. A day with nothing logged is `summarize(day, emptyList())` (so `hasEntries` is false), never missing. Days before the baby's birth date are left out.
+
+**M11 (Trends):** `summarize` also fills `weight` and `length` from the day's `GrowthMeasurement` entries. A day's entries arrive newest first, so the first non-null value of each wins (the day's latest measurement), and they can come from different entries. A day with no growth entry has `null` for both; `entryCount` still counts growth as before. `GetTrendsUseCase(today)` combines the baby with `observeSummaries(today - 29 days)` into `Trends(days: List<DaySummary>)`: `TREND_DAYS = 30` calendar days ending today, **oldest first**, empty days filled with `summarize(day, emptyList())`, days before the birth date left out. No new query, no schema change.
 
 ## 5. UI layer pattern
 
@@ -354,6 +359,7 @@ One-off events (e.g. "saved → dismiss", "deleted → show Undo") exposed as st
 
 ### Summary (new in M10, `:feature:summary`)
 - **Top bar:** the shared forest `ForestTopBar` (back arrow + "Summary").
+- **"View trends" link (M11):** the first item of the scrolling content, above "Today": the `Growth` trend-line icon + "View trends", styled like "Full history" (14 sp bold, leaf green), a `TextButton` (`Role.Button`) at least 48 dp tall. It opens `TrendsKey`.
 - **Today** (hero): the title "Today" with "so far · Sep 24" beside it, then one white 24 dp card (soft shadow) of three rows, each a 48 dp icon badge, a title with a subtitle, and a big Fraunces number:
   - **Fed**: bottle badge; subtitle "4 bottles · 1 solids"; number `18` + "oz" (bottles only).
   - **Pumped** + **MOM** badge: pump badge (rust); subtitle "3 sessions"; number + unit.
@@ -366,6 +372,23 @@ One-off events (e.g. "saved → dismiss", "deleted → show Undo") exposed as st
 - **Live:** `SummaryViewModel` combines `GetSummaryUseCase`, the unit preference and the same per-minute ticker as Today, so the totals update the moment you log something and roll over at local midnight (also when the time zone changes).
 - **Design tokens:** `displayMedium` (Fraunces 500, 40 sp) for the big numbers, `BabyIcons.BarChart` (paths `M5 20V12`, `M12 20V5`, `M19 20v-9`). The badges reuse `IconBadge`, `MomBadge` and the Feed/Diaper/`mom` accents. `UnitFormatter.volumeParts(volume, units)` returns the number and unit separately ("18", "oz").
 - **Accessibility:** the table has no Compose role, so each previous-day row is one `Role.Button` with a spoken description: "Yesterday. Fed 27 ounces. Pumped 16 ounces. 8 diapers. Opens history." Empty days read "Mon, Sep 22. Nothing logged.", and each hero row reads as one sentence.
+
+### Trends (new in M11, `:feature:trends`)
+- **Top bar:** `ForestTopBar` (back arrow + "Trends") on the sage background.
+- **Category toggle:** a `SegmentedToggle` of **Growth · Feeding · Diapers · Pumping** (a radio group). Its segments use 4 dp side padding (the toggle's new `segmentPadding`, default 16 dp) so all four labels fit on a 390 dp screen. Feeding is selected on arrival; the choice lives in `TrendsViewModel`, so it survives rotation.
+- **One white card** for the selected category: a title (heading), one figure, the line chart, and the window's first and last dates under it.
+
+  | Category | One point per | Value | Title / subtitle |
+  |---|---|---|---|
+  | Growth | day with a weight | `day.weight` | "Weight" · "Now 13.2 lb" (the newest point) |
+  | Feeding | every day in the window | `day.fed` (bottles only) | "Fed per day" · "Avg 24 oz / day" |
+  | Diapers | every day in the window | `day.diapers` | "Diapers per day" · "Avg 6 / day" |
+  | Pumping | every day in the window | `day.pumped` | "Pumped per day" · "Avg 16 oz / day" |
+
+- **`LineChart`** (in `:feature:trends`, its only consumer; it moves to `:core:designsystem` if a second screen needs it): stateless, Compose `Canvas` only, no chart library. A polyline with a dot per point, a faint gridline at the top and bottom of the plotted range with its min and max as y labels, and the dates under the plot. Points are spaced **by date** across the window, so a sparse Growth series isn't stretched. The y range is `0 .. max` for Feeding, Diapers and Pumping (a quiet day reads as low) and `min .. max` for Growth, inset so the end points clear the labels. Values stay metric in the model; `UnitFormatter` formats the labels.
+- **Empty state:** fewer than two points → "Not enough logged yet to show a trend." instead of the chart.
+- **Live:** `TrendsViewModel` combines `GetTrendsUseCase` (driven by `clock.todayDates()`, so the window rolls over at midnight), the selected category and the unit preference into `TrendsUiState.Loading | Ready(trends, category, unitSystem)`.
+- **Accessibility:** the chart is one node (`clearAndSetSemantics`) that reads "Fed per day, last 30 days. From 2 oz to 32 oz. Average 24 oz per day." The screen and card titles are headings.
 
 ### Settings
 - A profile card (avatar, name, "Born Jun 12, 2026", chevron) → `ProfileKey(Edit)`.
@@ -501,6 +524,7 @@ python tools/babytracker_import/babytracker_csv.py csv.zip --db some.db ...   # 
 | M8 | **Backup & restore** (§8): `:core:backup`, `.bsbackup` snapshot format, validated restore with preview + day repair, Settings rows, onboarding "Restore from a backup", `docs/EDITING.md` |
 | M9 | **One-time Baby Tracker import** (§8.1): **built**, `tools/babytracker_import/`; run against the emulator, not yet against the real device |
 | M10 | **Summary screen** (§4.6, §5): `DaySummary`/`TimelineDay` + `summarize`; `TimelineDao` day queries and removal of the SQL daily totals; **History restructured to one item per day** with scroll-to-day; `GetSummaryUseCase`; `:feature:summary`; the Today header button; design tokens; tests; a check on the phone against its real data |
+| M11 | **Trends** (§4.6, §5): `DaySummary.weight`/`length`; `GetTrendsUseCase` (30 days, oldest first); `:feature:trends` with a Canvas `LineChart` per category (Growth · Feeding · Diapers · Pumping); the "View trends" link on Summary; tests; docs |
 | M6 | Polish: empty states, accessibility (TalkBack labels, 48dp targets), app icon, release build config |
 
 ## 11. Defaults chosen (override if wrong)
@@ -520,6 +544,7 @@ python tools/babytracker_import/babytracker_csv.py csv.zip --db some.db ...   # 
 - Summary: the "day" is the local calendar day (midnight to midnight), the same as History. "Fed" counts bottle volume only (solids show as a count). The Diapers column is pee + potty.
 - Summary: the Pumped row always shows, even for a day with no pumping. The previous-days window is fixed at 5 calendar days.
 - History: unchanged to look at. Its day cards now come from per-day items, so they can be scrolled to by date.
+- Trends: a fixed 30-calendar-day window ending today (no 7/30/90 picker). Growth plots **weight only** (one line per chart; length isn't charted). The default category is **Feeding**, while the toggle still lists Growth first. Growth's figure is the latest weight; the other three show a daily average.
 
 ## 12. As built: notes and deviations
 
