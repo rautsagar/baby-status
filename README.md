@@ -11,6 +11,7 @@ Everything stays on the phone (no account, no server, no internet permission). A
 - **Log growth**: weight and/or length for a date.
 - **Log pumping** (Mom): amount, optional side and duration; a Pumping card on Today and pump rows in History.
 - **Summary**: today's totals (fed, pumped, diapers) and a quiet table of the five days before it; tap a day to open it in History.
+- **Trends** (from Summary's "View trends" link): a line chart of the last 30 days for growth (weight), feeding, diapers or pumping, with the latest weight or the daily average.
 - **History**: every entry grouped by day with daily totals; swipe to delete with Undo.
 - **Settings**: edit the baby's profile and photo, imperial / metric units, privacy policy, feedback.
 
@@ -22,7 +23,7 @@ Multi-module, Now-in-Android style, with convention plugins in `build-logic/`:
 
 ```
 app                      NavDisplay, sheets, undo snackbar, Hilt entry point
-feature/{today,log,growth,pump,history,summary,profile,settings}
+feature/{today,log,growth,pump,history,summary,trends,profile,settings}
 core/model               pure Kotlin domain types
 core/domain              use cases (age, validation, today status, delete + undo)
 core/data                repositories, photo storage

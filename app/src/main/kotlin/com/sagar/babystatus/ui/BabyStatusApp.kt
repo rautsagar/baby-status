@@ -51,6 +51,8 @@ import com.sagar.babystatus.feature.summary.SummaryKey
 import com.sagar.babystatus.feature.summary.summaryEntry
 import com.sagar.babystatus.feature.today.TodayKey
 import com.sagar.babystatus.feature.today.todayEntry
+import com.sagar.babystatus.feature.trends.TrendsKey
+import com.sagar.babystatus.feature.trends.trendsEntry
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -125,7 +127,9 @@ fun BabyStatusApp(
                 summaryEntry(
                     onBack = { backStack.goBack() },
                     onOpenHistory = { focusEpochDay -> backStack.add(HistoryKey(focusEpochDay)) },
+                    onOpenTrends = { backStack.add(TrendsKey) },
                 )
+                trendsEntry(onBack = { backStack.goBack() })
                 historyEntry(onBack = { backStack.goBack() }, onEditEntry = editEntry)
                 logActivityEntry(onDone = { key -> backStack.removeIfOnTop(key) })
                 logGrowthEntry(onDone = { key -> backStack.removeIfOnTop(key) })

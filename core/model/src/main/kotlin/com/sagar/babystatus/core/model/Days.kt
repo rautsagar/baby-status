@@ -18,6 +18,10 @@ data class DaySummary(
     val potty: Int,
     /** Every entry that day, including growth, which none of the totals above count. */
     val entryCount: Int,
+    /** The day's most recent weight, or null if none was measured that day. */
+    val weight: Mass?,
+    /** The day's most recent length, or null if none was measured that day. */
+    val length: Length?,
 ) {
     val diapers: Int get() = pee + potty
 
@@ -41,6 +45,8 @@ fun summarize(date: LocalDate, entries: List<TimelineEntry>): DaySummary {
     var sessions = 0
     var pee = 0
     var potty = 0
+    var weight: Mass? = null
+    var length: Length? = null
     for (entry in entries) {
         when (entry) {
             is BottleFeed -> {
@@ -53,7 +59,11 @@ fun summarize(date: LocalDate, entries: List<TimelineEntry>): DaySummary {
                 pumpedMl += entry.volume.ml
                 sessions++
             }
-            is GrowthMeasurement -> Unit
+            // Entries come newest first, so the first value of each is the day's latest.
+            is GrowthMeasurement -> {
+                if (weight == null) weight = entry.weight
+                if (length == null) length = entry.length
+            }
         }
     }
     return DaySummary(
@@ -66,5 +76,7 @@ fun summarize(date: LocalDate, entries: List<TimelineEntry>): DaySummary {
         pee = pee,
         potty = potty,
         entryCount = entries.size,
+        weight = weight,
+        length = length,
     )
 }

@@ -122,6 +122,8 @@ fun SegmentedToggle(
     style: SegmentStyle = SegmentStyle.Raised,
     segmentHeight: Dp = 44.dp,
     fillWidth: Boolean = true,
+    // Narrower than the default when four or more labels share one row (Trends).
+    segmentPadding: Dp = 16.dp,
 ) {
     val colors = BabyStatusTheme.colors
     Row(
@@ -151,7 +153,7 @@ fun SegmentedToggle(
                     .clip(shape)
                     .selectable(selected = selected, role = Role.RadioButton, onClick = { onSelect(index) }),
             ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 16.dp)) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = segmentPadding)) {
                     Text(
                         option,
                         style = if (style == SegmentStyle.Raised) {

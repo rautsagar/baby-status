@@ -5,6 +5,7 @@ import java.time.Instant
 import java.time.LocalDate
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DaySummaryTest {
@@ -15,7 +16,8 @@ class DaySummaryTest {
     private fun solids(id: String) = SolidsFeed(id, at, day, null, "Banana", SolidsAmount.SOME, null)
     private fun diaper(id: String, kind: DiaperKind) = DiaperChange(id, at, day, null, kind)
     private fun pump(id: String, oz: Double) = PumpSession(id, at, day, null, Volume.ofOz(oz), null, null)
-    private val growth = GrowthMeasurement("g", day, null, Mass(6000), null)
+    private fun growth(id: String, weight: Mass?, length: Length?) = GrowthMeasurement(id, day, null, weight, length)
+    private val growth = growth("g", Mass(6000), null)
 
     @Test
     fun `totals and counts, as the Summary card shows them`() {
@@ -60,6 +62,34 @@ class DaySummaryTest {
         assertFalse(summary.hasEntries)
         assertEquals(0, summary.entryCount)
         assertEquals(day, summary.date)
+    }
+
+    @Test
+    fun `the day's most recent weight and length win`() {
+        // Timeline order inside a day: newest first.
+        val summary = summarize(
+            day,
+            listOf(
+                growth("g2", Mass(6200), Length(600)),
+                growth("g1", Mass(6000), Length(590)),
+            ),
+        )
+        assertEquals(Mass(6200), summary.weight)
+        assertEquals(Length(600), summary.length)
+    }
+
+    @Test
+    fun `weight and length can come from different entries`() {
+        val summary = summarize(day, listOf(growth("g2", null, Length(600)), growth("g1", Mass(6000), null)))
+        assertEquals(Mass(6000), summary.weight)
+        assertEquals(Length(600), summary.length)
+    }
+
+    @Test
+    fun `a day with no growth entry has no weight or length`() {
+        val summary = summarize(day, listOf(bottle("b1", 3.0), diaper("d1", DiaperKind.PEE)))
+        assertNull(summary.weight)
+        assertNull(summary.length)
     }
 
     @Test

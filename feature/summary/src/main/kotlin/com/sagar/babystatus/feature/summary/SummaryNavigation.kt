@@ -9,10 +9,14 @@ data object SummaryKey : NavKey
 
 /**
  * Summary. [onOpenHistory] is given the epoch day to scroll History to, or null to open it
- * at the top ("Full history").
+ * at the top ("Full history"). [onOpenTrends] is the "View trends" link.
  */
-fun EntryProviderScope<NavKey>.summaryEntry(onBack: () -> Unit, onOpenHistory: (focusEpochDay: Long?) -> Unit) {
+fun EntryProviderScope<NavKey>.summaryEntry(
+    onBack: () -> Unit,
+    onOpenHistory: (focusEpochDay: Long?) -> Unit,
+    onOpenTrends: () -> Unit,
+) {
     entry<SummaryKey> {
-        SummaryRoute(onBack = onBack, onOpenHistory = onOpenHistory)
+        SummaryRoute(onBack = onBack, onOpenHistory = onOpenHistory, onOpenTrends = onOpenTrends)
     }
 }

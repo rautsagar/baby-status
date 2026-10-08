@@ -5,15 +5,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,10 +60,11 @@ import java.time.LocalDate
 internal fun SummaryRoute(
     onBack: () -> Unit,
     onOpenHistory: (focusEpochDay: Long?) -> Unit,
+    onOpenTrends: () -> Unit,
     viewModel: SummaryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    SummaryScreen(uiState = uiState, onBack = onBack, onOpenHistory = onOpenHistory)
+    SummaryScreen(uiState = uiState, onBack = onBack, onOpenHistory = onOpenHistory, onOpenTrends = onOpenTrends)
 }
 
 @Composable
@@ -67,6 +72,7 @@ internal fun SummaryScreen(
     uiState: SummaryUiState,
     onBack: () -> Unit,
     onOpenHistory: (focusEpochDay: Long?) -> Unit,
+    onOpenTrends: () -> Unit,
 ) {
     val colors = BabyStatusTheme.colors
     Column(Modifier.fillMaxSize().background(colors.sage)) {
@@ -84,10 +90,26 @@ internal fun SummaryScreen(
                     .navigationBarsPadding()
                     .padding(horizontal = 20.dp, vertical = 24.dp),
             ) {
+                TrendsLink(onOpenTrends)
                 TodaySection(uiState.summary.today, uiState.unitSystem, uiState.today)
                 PreviousDaysSection(uiState.summary, uiState.unitSystem, uiState.today, onOpenHistory)
             }
         }
+    }
+}
+
+/** "View trends": a text link styled like "Full history", with the trend-line icon. */
+@Composable
+private fun TrendsLink(onOpenTrends: () -> Unit) {
+    val colors = BabyStatusTheme.colors
+    TextButton(onClick = onOpenTrends, modifier = Modifier.heightIn(min = 48.dp)) {
+        Icon(BabyIcons.Growth, contentDescription = null, tint = colors.moss, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(
+            stringResource(R.string.feature_summary_view_trends),
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold),
+            color = colors.moss,
+        )
     }
 }
 
@@ -355,6 +377,8 @@ private fun SummaryScreenPreview() {
         pee = pee,
         potty = potty,
         entryCount = bottles + pee + potty,
+        weight = null,
+        length = null,
     )
     BabyStatusTheme {
         SummaryScreen(
@@ -373,6 +397,7 @@ private fun SummaryScreenPreview() {
             ),
             onBack = {},
             onOpenHistory = {},
+            onOpenTrends = {},
         )
     }
 }
