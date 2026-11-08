@@ -5,6 +5,8 @@
     <string name="feature_today_age">Age</string>
     <string name="feature_today_weight">Weight</string>
     <string name="feature_today_height">Height</string>
+    <!-- Read by TalkBack while the gain chip shows: "Weight 13.9 lb, up 0.7 lb". -->
+    <string name="feature_today_stat_gain">%1$s %2$s, up %3$s</string>
     <string name="feature_today_no_measurement">—</string>
     <string name="feature_today_log_growth">Log growth</string>
     <string name="feature_today_photo">Photo of %1$s</string>

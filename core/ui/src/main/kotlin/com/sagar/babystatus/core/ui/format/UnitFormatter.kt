@@ -4,6 +4,7 @@ import com.sagar.babystatus.core.model.Length
 import com.sagar.babystatus.core.model.Mass
 import com.sagar.babystatus.core.model.UnitSystem
 import com.sagar.babystatus.core.model.Volume
+import com.sagar.babystatus.core.model.displayTenths
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -21,15 +22,21 @@ object UnitFormatter {
         UnitSystem.METRIC -> VolumeParts(((volume.ml / 5).roundToInt() * 5).toString(), "ml")
     }
 
-    fun mass(mass: Mass, unitSystem: UnitSystem): String = when (unitSystem) {
-        UnitSystem.IMPERIAL -> "${oneDecimal(mass.lb)} lb"
-        UnitSystem.METRIC -> "${oneDecimal(mass.kg)} kg"
-    }
+    // Weights and lengths round through displayTenths, the same rounding that decides whether
+    // a measurement grew, so a gain chip always matches the numbers on screen.
+    fun mass(mass: Mass, unitSystem: UnitSystem): String =
+        "${tenths(mass.displayTenths(unitSystem))} ${massUnit(unitSystem)}"
 
-    fun length(length: Length, unitSystem: UnitSystem): String = when (unitSystem) {
-        UnitSystem.IMPERIAL -> "${oneDecimal(length.inches)} in"
-        UnitSystem.METRIC -> "${oneDecimal(length.cm)} cm"
-    }
+    fun length(length: Length, unitSystem: UnitSystem): String =
+        "${tenths(length.displayTenths(unitSystem))} ${lengthUnit(unitSystem)}"
+
+    /** How much a weight went up, as shown: 13.3 lb → 13.9 lb is "0.6 lb". */
+    fun massIncrease(from: Mass, to: Mass, unitSystem: UnitSystem): String =
+        "${tenths(to.displayTenths(unitSystem) - from.displayTenths(unitSystem))} ${massUnit(unitSystem)}"
+
+    /** How much a length went up, as shown: "0.5 in". */
+    fun lengthIncrease(from: Length, to: Length, unitSystem: UnitSystem): String =
+        "${tenths(to.displayTenths(unitSystem) - from.displayTenths(unitSystem))} ${lengthUnit(unitSystem)}"
 
     fun massUnit(unitSystem: UnitSystem) = if (unitSystem == UnitSystem.IMPERIAL) "lb" else "kg"
 
@@ -49,6 +56,8 @@ object UnitFormatter {
     }
 
     private fun oneDecimal(value: Double) = String.format(Locale.getDefault(), "%.1f", value)
+
+    private fun tenths(value: Long) = oneDecimal(value / 10.0)
 }
 
 /** Parses a typed decimal, accepting either `.` or `,` as the separator. */

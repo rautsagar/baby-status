@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
                         hasBaby = ready.hasBaby,
                         deletedIds = viewModel.deletedIds,
                         onUndoDelete = viewModel::undoDelete,
+                        growthGains = viewModel.growthGains,
                     )
                 }
             }

@@ -49,6 +49,30 @@ interface LogEntryDao {
     )
     fun observeLatestLengthMm(babyId: String): Flow<Int?>
 
+    /** The newest weight measured before [epochDay], ignoring the measurement [excludeId]. */
+    @Query(
+        """
+        SELECT weight_g FROM log_entry
+        WHERE baby_id = :babyId AND deleted_at IS NULL AND type = 'GROWTH' AND weight_g IS NOT NULL
+            AND local_epoch_day < :epochDay AND id != :excludeId
+        ORDER BY local_epoch_day DESC, updated_at DESC
+        LIMIT 1
+        """,
+    )
+    suspend fun weightGramsBefore(babyId: String, epochDay: Long, excludeId: String): Int?
+
+    /** The newest length measured before [epochDay], ignoring the measurement [excludeId]. */
+    @Query(
+        """
+        SELECT length_mm FROM log_entry
+        WHERE baby_id = :babyId AND deleted_at IS NULL AND type = 'GROWTH' AND length_mm IS NOT NULL
+            AND local_epoch_day < :epochDay AND id != :excludeId
+        ORDER BY local_epoch_day DESC, updated_at DESC
+        LIMIT 1
+        """,
+    )
+    suspend fun lengthMmBefore(babyId: String, epochDay: Long, excludeId: String): Int?
+
     /** Distinct foods, most recently eaten first. */
     @Query(
         """

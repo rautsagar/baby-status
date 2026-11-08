@@ -13,10 +13,15 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -27,7 +32,11 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.sagar.babystatus.R
+import com.sagar.babystatus.core.designsystem.component.Celebration
+import com.sagar.babystatus.core.designsystem.component.ConfettiRain
+import com.sagar.babystatus.core.designsystem.component.animationsEnabled
 import com.sagar.babystatus.core.designsystem.theme.BabyStatusTheme
+import com.sagar.babystatus.core.domain.GrowthGain
 import com.sagar.babystatus.core.model.GrowthMeasurement
 import com.sagar.babystatus.core.model.LogEntry
 import com.sagar.babystatus.core.model.PumpSession
@@ -53,18 +62,20 @@ import com.sagar.babystatus.feature.today.TodayKey
 import com.sagar.babystatus.feature.today.todayEntry
 import com.sagar.babystatus.feature.trends.TrendsKey
 import com.sagar.babystatus.feature.trends.trendsEntry
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 
 /**
- * The app shell: one back stack, every feature's entries, sheets as an overlay scene, and
- * the app-wide "Entry deleted · UNDO" snackbar. Features never navigate themselves; they
- * call the lambdas wired here.
+ * The app shell: one back stack, every feature's entries, sheets as an overlay scene, the
+ * app-wide "Entry deleted · UNDO" snackbar, and the confetti when a growth measurement goes
+ * up. Features never navigate themselves; they call the lambdas wired here.
  */
 @Composable
 fun BabyStatusApp(
     hasBaby: Boolean,
     deletedIds: Flow<String>,
     onUndoDelete: (String) -> Unit,
+    growthGains: Flow<GrowthGain>,
 ) {
     // Restored after process death; the start key only matters on first composition.
     val backStack = rememberNavBackStack(if (hasBaby) TodayKey else ProfileKey(ProfileMode.CREATE))
@@ -77,6 +88,18 @@ fun BabyStatusApp(
         deletedIds.collect { id ->
             val result = snackbarHostState.showSnackbar(entryDeleted, actionLabel = undo, duration = SnackbarDuration.Long)
             if (result == SnackbarResult.ActionPerformed) currentOnUndoDelete(id)
+        }
+    }
+
+    // Counts celebrations; each new value starts a fresh confetti run.
+    var confettiBurst by remember { mutableIntStateOf(0) }
+    val haptics = LocalHapticFeedback.current
+    val context = LocalContext.current
+    LaunchedEffect(growthGains) {
+        growthGains.collect {
+            delay(Celebration.START_DELAY_MILLIS)
+            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            if (context.animationsEnabled()) confettiBurst++
         }
     }
 
@@ -141,6 +164,8 @@ fun BabyStatusApp(
                 )
             },
         )
+        // Above every screen and sheet, below the snackbar. It takes no touches.
+        ConfettiRain(burst = confettiBurst.takeIf { it > 0 })
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier

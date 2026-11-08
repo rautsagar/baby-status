@@ -8,7 +8,7 @@ Everything stays on the phone (no account, no server, no internet permission). A
 
 - **Today**: age, photo, latest weight and height, time since the last feed and diaper (updated every minute), and today's entries.
 - **Log activity** (bottom sheet): bottle (1–10 oz / 30–300 ml slider), solids (food with suggestions, amount, optional reaction), diaper (pee / potty), when, and a note. Tap an entry to edit or delete it.
-- **Log growth**: weight and/or length for a date.
+- **Log growth**: weight and/or length for a date. When either goes up, confetti rains over the screen and Today shows how much ("▲ 0.7 lb").
 - **Log pumping** (Mom): amount, optional side and duration; a Pumping card on Today and pump rows in History.
 - **Summary**: today's totals (fed, pumped, diapers) and a quiet table of the five days before it; tap a day to open it in History.
 - **Trends** (from Summary's "View trends" link): a line chart of the last 30 days for growth (weight), feeding, diapers or pumping, with the latest weight or the daily average.

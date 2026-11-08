@@ -331,6 +331,14 @@ One-off events (e.g. "saved → dismiss", "deleted → show Undo") exposed as st
 - At least one measurement is required. The date can't be in the future or before the birth date.
 - Edit mode follows the activity sheet: the title becomes "Edit growth" and a "Delete entry" button appears. (The mockup has no edit variant, so this mirrors AddActivity.)
 
+### Growth celebration (M12)
+Saving a measurement that shows growth throws confetti, Robinhood-style. There is one style and no setting for it. Preview: [Artha Growth Confetti](https://claude.ai/artifact/NLtyTHCkg6hynxAmLzBsqL).
+- **When:** a weight or length is higher than the newest one measured **before this measurement's date** (each measure is compared on its own, so either one growing is enough). Values are compared **as shown**, in tenths of the display unit (`Mass/Length.displayTenths`), so a gain never reads "+0.0 lb". An edit counts only for a value it changed. No celebration for the first measurement ever, a dip, no change, or the Baby Tracker import (it writes the database directly).
+- **`SaveGrowthUseCase`** (`:core:domain`, a `@Singleton` like `DeleteEntryUseCase`) saves through `LogRepository`, compares with `LogRepository.growthBefore(date, excludeId)` (two `LogEntryDao` queries, no schema change), and emits a `GrowthGain(weight: Increase<Mass>?, length: Increase<Length>?)` on `gains`. `LogGrowthViewModel.save()` calls it instead of `LogRepository.save`.
+- **Sequence:** the sheet closes; after `Celebration.START_DELAY_MILLIS` (200 ms) `:app` gives one haptic tick (`HapticFeedbackType.Confirm`) and starts `ConfettiRain` over every screen: about 90 pieces in gold, gold-light, ivory, mist, sage, blush and wheat fall from the top with gravity, drag, flutter and a 3D tumble, gone in about 3 s. They ease toward a fall speed of max(300 dp/s, screen height / 2.6 s), so the rain sweeps most of a tall phone too. It has no touch handling or semantics, so the screen underneath keeps working.
+- **On Today:** `TodayViewModel` collects the same `gains`, and for `GAIN_CHIP_MILLIS` (4 s) the stat that grew pops once (scale 1.18, a flash of gold-light) and a `GainChip` ("▲ 0.7 lb") hangs 2 dp under its number without taking layout space. The chip shows only when the value that grew is the one Today shows (a backdated measurement gets confetti but no chip). The amount is the difference of the two numbers as displayed (`UnitFormatter.massIncrease`/`lengthIncrease`).
+- **Accessibility:** with Android's "Remove animations" on (`ANIMATOR_DURATION_SCALE` = 0) there's no confetti and Compose skips the pop; the number still updates and the chip still shows. While the chip shows, the stat reads "Weight 13.9 lb, up 0.7 lb", and the weight and height stats are polite live regions, so TalkBack announces the change.
+
 ### Log pumping sheet (`:feature:pump`)
 - Header: a small **MOM** badge (`#F6E1DA` / `#7A2F22`) above the title "Log pumping" / "Edit pumping", and the close button.
 - "Amount pumped": the same slider card as the bottle (`VolumeScale`, rust `#8E4436` accent), default 3 oz / 90 ml.
@@ -525,6 +533,7 @@ python tools/babytracker_import/babytracker_csv.py csv.zip --db some.db ...   # 
 | M9 | **One-time Baby Tracker import** (§8.1): **built**, `tools/babytracker_import/`; run against the emulator, not yet against the real device |
 | M10 | **Summary screen** (§4.6, §5): `DaySummary`/`TimelineDay` + `summarize`; `TimelineDao` day queries and removal of the SQL daily totals; **History restructured to one item per day** with scroll-to-day; `GetSummaryUseCase`; `:feature:summary`; the Today header button; design tokens; tests; a check on the phone against its real data |
 | M11 | **Trends** (§4.6, §5): `DaySummary.weight`/`length`; `GetTrendsUseCase` (30 days, oldest first); `:feature:trends` with a Canvas `LineChart` per category (Growth · Feeding · Diapers · Pumping); the "View trends" link on Summary; tests; docs |
+| M12 | **Growth celebration** (§5): `SaveGrowthUseCase` + `LogRepository.growthBefore`; `ConfettiRain` and `GainChip` in `:core:designsystem`; the pop and ▲ chip on Today; tests; a check on the emulator |
 | M6 | Polish: empty states, accessibility (TalkBack labels, 48dp targets), app icon, release build config |
 
 ## 11. Defaults chosen (override if wrong)
@@ -577,6 +586,13 @@ M10 (Summary) as built:
 - **The previous-days table shows "—" for any zero figure**, not only on empty days: a day with no pumping reads quieter as a dash than as "0 oz". The hero card still shows real zeros ("0 oz", "0 sessions").
 - **Checked on the Pixel_9a emulator, not the phone** (it wasn't connected): the Baby Tracker export plus a seeded week. Summary's Today card, the previous-days table and History's day headers agreed on every figure; a tap on a day opened History scrolled to it; the empty day did nothing; "Full history" opened History at the top; a History swipe-delete updated the Today header live and Undo brought the row back undismissed. Still worth a look on the phone against its real data.
 - **Paging test tooling:** `FakeTimelineRepository.historyDays()` emits `PagingData.from(days, SETTLED)`. Without load states, `asSnapshot` waits for a load that never comes and times out. `:feature:history` tests use `paging-testing`.
+
+M12 (growth celebration) as built:
+- **Built as planned** (§5 Growth celebration). The confetti physics is a plain class (`Confetti`) stepped by `ConfettiRain` in a `withFrameNanos` loop, so it's unit-tested without Compose.
+- **Fall speed scales with the screen.** At a fixed 300 dp/s the pieces faded out around mid-screen on a 915 dp phone (the preview's phone was shorter); now they fall at max(300 dp/s, height / 2.6 s).
+- **"Remove animations" needs an explicit check for the confetti.** Compose's `animate*` APIs honor the system animation scale on their own (the pop just snaps), but a hand-written `withFrameNanos` loop doesn't, so `:app` reads `ANIMATOR_DURATION_SCALE` before starting a run.
+- **Same-day measurements aren't "before" each other**, since growth has no time of day: a second weighing today is compared with the newest earlier day, so 13.2 lb (Nov 2) → 13.9 → 14.3 (both Nov 7) shows "▲ 1.1 lb" on the second, not 0.4.
+- **Checked on the Pixel_9a emulator:** a first measurement gets nothing; a gain pops the number, shows "▲ 0.7 lb" / "▲ 0.5 in" for 4 s and rains confetti for about 3 s, after which Today is unchanged; a weight-only gain shows only the weight chip; with Remove animations on there's no confetti or pop, but the chip still shows. The haptic tick can't be felt on an emulator.
 
 Still open (M6 + M7):
 - An automated migration test (`MigrationTestHelper`). It needs instrumented or Robolectric tests, which v1 skipped. The 1 → 2 upgrade was verified by installing over a v1 build on the emulator.

@@ -1,6 +1,10 @@
 package com.sagar.babystatus.feature.growth
 
+import app.cash.turbine.test
 import com.sagar.babystatus.core.domain.DeleteEntryUseCase
+import com.sagar.babystatus.core.domain.GrowthGain
+import com.sagar.babystatus.core.domain.Increase
+import com.sagar.babystatus.core.domain.SaveGrowthUseCase
 import com.sagar.babystatus.core.domain.ValidateLogEntryUseCase
 import com.sagar.babystatus.core.model.Baby
 import com.sagar.babystatus.core.model.GrowthMeasurement
@@ -45,12 +49,15 @@ class LogGrowthViewModelTest {
         key: LogGrowthKey = LogGrowthKey(),
         log: FakeLogRepository = FakeLogRepository(),
         unitSystem: UnitSystem = UnitSystem.IMPERIAL,
+        preferences: FakeUserPreferencesRepository = FakeUserPreferencesRepository(unitSystem),
+        saveGrowth: SaveGrowthUseCase = SaveGrowthUseCase(log, preferences),
     ) = LogGrowthViewModel(
         key = key,
         logRepository = log,
         babyRepository = FakeBabyRepository(Baby("baby-1", "Ava", LocalDate.of(2026, 6, 12), null)),
-        userPreferencesRepository = FakeUserPreferencesRepository(unitSystem),
+        userPreferencesRepository = preferences,
         validate = ValidateLogEntryUseCase(clock),
+        saveGrowth = saveGrowth,
         deleteEntry = DeleteEntryUseCase(FakeTimelineRepository(log)),
         idGenerator = SequentialIdGenerator(),
         clock = clock,
@@ -75,6 +82,20 @@ class LogGrowthViewModelTest {
         assertEquals(Mass.ofLb(13.2), saved.weight)
         assertNull(saved.length)
         assertEquals(today, saved.date)
+        assertTrue(vm.uiState.value.isDone)
+    }
+
+    @Test
+    fun `a heavier weight than the last measurement is announced as a gain`() = runTest {
+        val log = FakeLogRepository(listOf(GrowthMeasurement("g0", today.minusDays(14), null, Mass.ofLb(13.2), null)))
+        val saveGrowth = SaveGrowthUseCase(log, FakeUserPreferencesRepository())
+        val vm = viewModel(log = log, saveGrowth = saveGrowth)
+
+        saveGrowth.gains.test {
+            vm.onWeightChanged("13.9")
+            vm.save()
+            assertEquals(GrowthGain(Increase(Mass.ofLb(13.2), Mass.ofLb(13.9)), length = null), awaitItem())
+        }
         assertTrue(vm.uiState.value.isDone)
     }
 

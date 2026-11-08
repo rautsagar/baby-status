@@ -49,6 +49,15 @@ internal class DefaultLogRepository @Inject constructor(
             ) { grams, mm -> LatestGrowth(weight = grams?.let(::Mass), length = mm?.let(::Length)) }
         }
 
+    override suspend fun growthBefore(date: LocalDate, excludeId: String): LatestGrowth {
+        val babyId = babyDao.getBaby()?.id ?: return LatestGrowth(weight = null, length = null)
+        val day = date.toEpochDay()
+        return LatestGrowth(
+            weight = logEntryDao.weightGramsBefore(babyId, day, excludeId)?.let(::Mass),
+            length = logEntryDao.lengthMmBefore(babyId, day, excludeId)?.let(::Length),
+        )
+    }
+
     override fun observeFoods(): Flow<List<String>> = forBaby(emptyList(), logEntryDao::observeFoods)
 
     override suspend fun get(id: String): LogEntry? = logEntryDao.getById(id)?.toModelLogged()

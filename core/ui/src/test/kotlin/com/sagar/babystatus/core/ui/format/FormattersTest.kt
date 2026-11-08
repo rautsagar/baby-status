@@ -33,6 +33,15 @@ class FormattersTest {
     }
 
     @Test
+    fun `an increase is the difference of the numbers as shown`() {
+        // 13.26 lb shows as 13.3 lb and 13.94 lb as 13.9 lb, so the chip says 0.6, not 0.7.
+        assertEquals("0.6 lb", UnitFormatter.massIncrease(Mass.ofLb(13.26), Mass.ofLb(13.94), UnitSystem.IMPERIAL))
+        assertEquals("0.3 kg", UnitFormatter.massIncrease(Mass.ofKg(6.0), Mass.ofKg(6.3), UnitSystem.METRIC))
+        assertEquals("0.5 in", UnitFormatter.lengthIncrease(Length.ofInches(23.5), Length.ofInches(24.0), UnitSystem.IMPERIAL))
+        assertEquals("1.2 cm", UnitFormatter.lengthIncrease(Length.ofCm(60.0), Length.ofCm(61.2), UnitSystem.METRIC))
+    }
+
+    @Test
     fun `mass and length keep one decimal`() {
         assertEquals("13.2 lb", UnitFormatter.mass(Mass.ofLb(13.2), UnitSystem.IMPERIAL))
         assertEquals("6.0 kg", UnitFormatter.mass(Mass(5987), UnitSystem.METRIC))

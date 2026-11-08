@@ -36,6 +36,12 @@ interface LogRepository {
 
     fun observeLatestGrowth(): Flow<LatestGrowth>
 
+    /**
+     * The newest weight and the newest length measured before [date] (they may come from
+     * different measurements), ignoring the measurement [excludeId].
+     */
+    suspend fun growthBefore(date: LocalDate, excludeId: String): LatestGrowth
+
     /** Distinct foods logged as solids, most recently eaten first. */
     fun observeFoods(): Flow<List<String>>
 

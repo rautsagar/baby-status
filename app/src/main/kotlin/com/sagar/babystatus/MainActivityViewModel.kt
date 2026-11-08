@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sagar.babystatus.core.data.repository.BabyRepository
 import com.sagar.babystatus.core.domain.DeleteEntryUseCase
+import com.sagar.babystatus.core.domain.GrowthGain
+import com.sagar.babystatus.core.domain.SaveGrowthUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,6 +26,7 @@ sealed interface MainActivityUiState {
 class MainActivityViewModel @Inject constructor(
     babyRepository: BabyRepository,
     private val deleteEntry: DeleteEntryUseCase,
+    saveGrowth: SaveGrowthUseCase,
 ) : ViewModel() {
 
     val uiState: StateFlow<MainActivityUiState> = babyRepository.baby
@@ -32,6 +35,9 @@ class MainActivityViewModel @Inject constructor(
 
     /** Every delete, wherever it happened, so one snackbar can offer Undo. */
     val deletedIds: SharedFlow<String> = deleteEntry.deletedIds
+
+    /** Every growth measurement that went up, so the app can throw confetti over any screen. */
+    val growthGains: SharedFlow<GrowthGain> = saveGrowth.gains
 
     fun undoDelete(id: String) {
         viewModelScope.launch { deleteEntry.undo(id) }

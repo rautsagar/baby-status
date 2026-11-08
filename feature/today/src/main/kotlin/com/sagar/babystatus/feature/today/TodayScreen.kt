@@ -1,5 +1,14 @@
 package com.sagar.babystatus.feature.today
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,30 +34,42 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sagar.babystatus.core.designsystem.component.CapsLabel
 import com.sagar.babystatus.core.designsystem.component.CircleIconButton
+import com.sagar.babystatus.core.designsystem.component.GainChip
 import com.sagar.babystatus.core.designsystem.component.IconBadge
 import com.sagar.babystatus.core.designsystem.component.LogFab
 import com.sagar.babystatus.core.designsystem.component.MomBadge
@@ -195,12 +216,14 @@ private fun StatusCircle(state: TodayUiState.Ready, onLogGrowth: () -> Unit) {
             Stat(
                 label = stringResource(R.string.feature_today_weight),
                 value = state.weight?.let { UnitFormatter.mass(it, state.unitSystem) } ?: none,
+                gain = state.gain?.weight?.let { UnitFormatter.massIncrease(it.from, it.to, state.unitSystem) },
                 onClick = onLogGrowth,
                 modifier = Modifier.align(Alignment.BottomStart).padding(start = 4.dp, bottom = 6.dp),
             )
             Stat(
                 label = stringResource(R.string.feature_today_height),
                 value = state.length?.let { UnitFormatter.length(it, state.unitSystem) } ?: none,
+                gain = state.gain?.length?.let { UnitFormatter.lengthIncrease(it.from, it.to, state.unitSystem) },
                 onClick = onLogGrowth,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 4.dp, bottom = 6.dp),
             )
@@ -224,29 +247,84 @@ private fun StatusCircle(state: TodayUiState.Ready, onLogGrowth: () -> Unit) {
     }
 }
 
+/**
+ * A label over a value. While [gain] ("0.7 lb") is set, the stat pops once and a gain chip
+ * hangs under it. The chip takes no space, so nothing around it moves.
+ */
 @Composable
-private fun Stat(label: String, value: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+private fun Stat(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    gain: String? = null,
+    onClick: (() -> Unit)? = null,
+) {
     val colors = BabyStatusTheme.colors
     val logGrowth = stringResource(R.string.feature_today_log_growth)
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .then(if (onClick != null) Modifier.clickable(onClickLabel = logGrowth, role = Role.Button, onClick = onClick) else Modifier)
-            .padding(horizontal = 6.dp, vertical = 4.dp)
-            .clearAndSetSemantics {
-                contentDescription = "$label $value"
-                if (onClick != null) {
-                    role = Role.Button
-                    onClick(label = logGrowth) { onClick(); true }
+    val description = gain?.let { stringResource(R.string.feature_today_stat_gain, label, value, it) } ?: "$label $value"
+
+    // 0 at rest, 1 at the top of the pop. With animations off, Compose finishes it instantly.
+    val pop = remember { Animatable(0f) }
+    LaunchedEffect(gain) {
+        if (gain != null) {
+            pop.animateTo(1f, tween(durationMillis = 190, easing = FastOutSlowInEasing))
+            pop.animateTo(0f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessLow))
+        }
+    }
+    // Keeps the chip's text while it fades out after the gain is cleared.
+    var chipText by remember { mutableStateOf(gain) }
+    LaunchedEffect(gain) { if (gain != null) chipText = gain }
+
+    Box(modifier) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier
+                .graphicsLayer {
+                    val scale = 1f + POP_SCALE * pop.value
+                    scaleX = scale
+                    scaleY = scale
                 }
-            },
-    ) {
-        CapsLabel(label, color = colors.mist)
-        Text(value, style = MaterialTheme.typography.titleLarge, color = colors.ivory, maxLines = 1)
+                .clip(RoundedCornerShape(12.dp))
+                .then(if (onClick != null) Modifier.clickable(onClickLabel = logGrowth, role = Role.Button, onClick = onClick) else Modifier)
+                .padding(horizontal = 6.dp, vertical = 4.dp)
+                .clearAndSetSemantics {
+                    contentDescription = description
+                    if (onClick != null) {
+                        role = Role.Button
+                        onClick(label = logGrowth) { onClick(); true }
+                        // Weight and height change while the growth sheet closes over Today: say so.
+                        liveRegion = LiveRegionMode.Polite
+                    }
+                },
+        ) {
+            CapsLabel(label, color = colors.mist)
+            Text(
+                value,
+                style = MaterialTheme.typography.titleLarge,
+                color = lerp(colors.ivory, colors.goldLight, pop.value.coerceIn(0f, 1f)),
+                maxLines = 1,
+            )
+        }
+        AnimatedVisibility(
+            visible = gain != null,
+            enter = fadeIn() + slideInVertically { -it / 2 },
+            exit = fadeOut(),
+            // The stat's description already says how much it went up.
+            modifier = Modifier.align(Alignment.BottomCenter).hangBelow(2.dp).clearAndSetSemantics {},
+        ) {
+            chipText?.let { GainChip(it) }
+        }
     }
 }
+
+/** Takes no space where it's placed, and draws its content centered just below that point. */
+private fun Modifier.hangBelow(gap: Dp) = layout { measurable, _ ->
+    val placeable = measurable.measure(Constraints())
+    layout(0, 0) { placeable.place(-placeable.width / 2, gap.roundToPx()) }
+}
+
+private const val POP_SCALE = 0.18f
 
 @Composable
 private fun ActivitySection(

@@ -8,6 +8,7 @@ import com.sagar.babystatus.core.data.repository.LogRepository
 import com.sagar.babystatus.core.data.repository.UserPreferencesRepository
 import com.sagar.babystatus.core.domain.DeleteEntryUseCase
 import com.sagar.babystatus.core.domain.LogEntryError
+import com.sagar.babystatus.core.domain.SaveGrowthUseCase
 import com.sagar.babystatus.core.domain.ValidateLogEntryUseCase
 import com.sagar.babystatus.core.model.GrowthMeasurement
 import com.sagar.babystatus.core.model.Length
@@ -64,6 +65,7 @@ class LogGrowthViewModel @AssistedInject constructor(
     private val babyRepository: BabyRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val validate: ValidateLogEntryUseCase,
+    private val saveGrowth: SaveGrowthUseCase,
     private val deleteEntry: DeleteEntryUseCase,
     private val idGenerator: IdGenerator,
     private val clock: Clock,
@@ -141,7 +143,7 @@ class LogGrowthViewModel @AssistedInject constructor(
                 errors.value = problems
                 return@launch
             }
-            logRepository.save(entry)
+            saveGrowth(entry)
             isDone.value = true
         }
     }

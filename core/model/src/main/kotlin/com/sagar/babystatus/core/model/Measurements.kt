@@ -36,3 +36,14 @@ value class Length(val mm: Int) {
 }
 
 enum class UnitSystem { IMPERIAL, METRIC }
+
+/**
+ * The weight as the app shows it, in tenths of the display unit (13.2 lb → 132). Comparing
+ * these compares what the user sees, so a gain can't read "+0.0 lb".
+ */
+fun Mass.displayTenths(unitSystem: UnitSystem): Long =
+    Math.round((if (unitSystem == UnitSystem.IMPERIAL) lb else kg) * 10)
+
+/** The length as the app shows it, in tenths of the display unit (23.5 in → 235). */
+fun Length.displayTenths(unitSystem: UnitSystem): Long =
+    Math.round((if (unitSystem == UnitSystem.IMPERIAL) inches else cm) * 10)

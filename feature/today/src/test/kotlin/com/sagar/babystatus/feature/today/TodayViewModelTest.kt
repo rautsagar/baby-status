@@ -1,8 +1,12 @@
 package com.sagar.babystatus.feature.today
 
+import com.sagar.babystatus.core.designsystem.component.Celebration
 import com.sagar.babystatus.core.domain.BabyAge
 import com.sagar.babystatus.core.domain.CalculateAgeUseCase
 import com.sagar.babystatus.core.domain.GetTodayStatusUseCase
+import com.sagar.babystatus.core.domain.GrowthGain
+import com.sagar.babystatus.core.domain.Increase
+import com.sagar.babystatus.core.domain.SaveGrowthUseCase
 import com.sagar.babystatus.core.model.Baby
 import com.sagar.babystatus.core.model.BottleFeed
 import com.sagar.babystatus.core.model.BreastSide
@@ -23,6 +27,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
@@ -30,6 +35,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 
 class TodayViewModelTest {
     @get:Rule
@@ -43,10 +49,12 @@ class TodayViewModelTest {
         babies: FakeBabyRepository,
         log: FakeLogRepository,
         pump: FakePumpRepository = FakePumpRepository(),
+        saveGrowth: SaveGrowthUseCase = SaveGrowthUseCase(log, FakeUserPreferencesRepository()),
     ) = TodayViewModel(
         getTodayStatus = GetTodayStatusUseCase(babies, log, CalculateAgeUseCase()),
         pumpRepository = pump,
         userPreferencesRepository = FakeUserPreferencesRepository(),
+        saveGrowth = saveGrowth,
         clock = clock,
     ).also { vm -> backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect() } }
 
@@ -88,6 +96,42 @@ class TodayViewModelTest {
         assertEquals(9.0, state.pumping.pumpedToday.oz, 0.001)
         assertEquals(noon, state.pumping.last)
         assertEquals(emptyList(), state.recent)
+    }
+
+    private fun TodayViewModel.ready() = assertIs<TodayUiState.Ready>(uiState.value)
+
+    @Test
+    fun `a gain shows once the sheet is out of the way, then clears`() = runTest {
+        val log = FakeLogRepository(listOf(GrowthMeasurement("g0", today.minusDays(14), null, Mass.ofLb(13.2), Length.ofInches(23.5))))
+        val saveGrowth = SaveGrowthUseCase(log, FakeUserPreferencesRepository())
+        val vm = viewModel(FakeBabyRepository(baby), log, saveGrowth = saveGrowth)
+
+        saveGrowth(GrowthMeasurement("g1", today, null, Mass.ofLb(13.9), length = null))
+        assertNull(vm.ready().gain, "not while the sheet is still closing")
+
+        advanceTimeBy(Celebration.START_DELAY_MILLIS + 1)
+        assertEquals(GrowthGain(Increase(Mass.ofLb(13.2), Mass.ofLb(13.9)), length = null), vm.ready().gain)
+        assertEquals(Mass.ofLb(13.9), vm.ready().weight)
+
+        advanceTimeBy(TodayViewModel.GAIN_CHIP_MILLIS)
+        assertNull(vm.ready().gain)
+    }
+
+    @Test
+    fun `a backdated gain gets no chip under a newer number`() = runTest {
+        val log = FakeLogRepository(
+            listOf(
+                GrowthMeasurement("g0", today.minusDays(30), null, Mass.ofLb(12.0), null),
+                GrowthMeasurement("g2", today.minusDays(2), null, Mass.ofLb(14.0), null),
+            ),
+        )
+        val saveGrowth = SaveGrowthUseCase(log, FakeUserPreferencesRepository())
+        val vm = viewModel(FakeBabyRepository(baby), log, saveGrowth = saveGrowth)
+
+        saveGrowth(GrowthMeasurement("g1", today.minusDays(15), null, Mass.ofLb(13.0), null))
+        advanceTimeBy(Celebration.START_DELAY_MILLIS + 1)
+
+        assertNull(vm.ready().gain, "Today shows 14.0 lb, which didn't change")
     }
 
     @Test

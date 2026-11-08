@@ -113,6 +113,16 @@ class FakeLogRepository(initial: List<LogEntry> = emptyList()) : LogRepository {
         )
     }
 
+    override suspend fun growthBefore(date: LocalDate, excludeId: String): LatestGrowth {
+        val earlier = table.visible.filterIsInstance<GrowthMeasurement>()
+            .filter { it.id != excludeId && it.date.isBefore(date) }
+            .sortedByDescending { it.date }
+        return LatestGrowth(
+            weight = earlier.firstNotNullOfOrNull { it.weight },
+            length = earlier.firstNotNullOfOrNull { it.length },
+        )
+    }
+
     override fun observeFoods(): Flow<List<String>> = table.flow.map { list ->
         list.filterIsInstance<SolidsFeed>().sortedByDescending { it.occurredAt }.map { it.food }
             .distinctBy { it.lowercase() }
